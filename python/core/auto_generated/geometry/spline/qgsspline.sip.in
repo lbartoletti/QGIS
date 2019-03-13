@@ -1,0 +1,160 @@
+/************************************************************************
+ * This file has been generated automatically from                      *
+ *                                                                      *
+ * qgsspline.h                                                          *
+ *                                                                      *
+ * Do not edit manually ! Edit header and run scripts/sipify.pl again   *
+ ************************************************************************/
+
+
+
+
+class QgsSpline
+{
+%Docstring
+Spline geometry type.
+
+.. versionadded:: 3.8
+%End
+
+%TypeHeaderCode
+#include "qgsspline.h"
+%End
+  public:
+
+    QgsSpline( const int degree = 3 );
+%Docstring
+Uniform spline without control points
+
+:param degree: Degree of the spline
+%End
+
+    QgsSpline( const std::vector<QgsPoint> &controlPoints, const int degree = 3 );
+%Docstring
+Unform spline with control points
+
+:param controlPoints: Control points
+:param degree: Degree of the spline
+%End
+
+    QgsSpline( const std::vector<QgsPoint> &controlPoints, const std::vector<double> knots, const int degree = 3 );
+%Docstring
+Spline with custom knot vector
+
+:param controlPoints: Control points
+:param knots: Knots vector
+:param degree: Degree of the spline
+%End
+
+    QgsPoint operator()( const double t ) const;
+%Docstring
+Computes C(t).
+@param t The parameter t.
+@return The computed point.
+%End
+
+    QgsPoint derivatives( const double t, int k = 1 ) const;
+%Docstring
+Computes C(k)(t).
+@param t The parameter t.
+@param k The order k.
+@return The computed point.
+%End
+
+    int getDegree() const;
+%Docstring
+Returns the degree
+%End
+
+    void setDegree( const int degree );
+%Docstring
+Sets the degree
+%End
+
+    bool isUniform() const;
+%Docstring
+Is the spline uniform?
+%End
+
+    void setUniform( const bool uniform );
+%Docstring
+Sets the spline uniform or not
+%End
+
+    bool isClamped() const;
+%Docstring
+Is the spline clamped?
+%End
+
+    void setClamped( const bool clamped );
+%Docstring
+Sets the spline clamped or not
+%End
+
+
+    double getStep() const;
+%Docstring
+Step between points on the curve
+%End
+
+    void setStep( const double step ) const;
+%Docstring
+Set steps between points on the curve
+%End
+
+    void insertControlPoint( typename std::vector<QgsPoint>::iterator position, QgsPoint point );
+%Docstring
+Inserts a control point before specified ``position``.
+%End
+
+    void pushControlPoint( QgsPoint point );
+%Docstring
+Appends a control point.
+%End
+
+    void removeControlPoint( typename std::vector<QgsPoint>::iterator position );
+%Docstring
+Remove control point at ``position``.
+%End
+
+    void replaceControlPoint( typename std::vector<QgsPoint>::iterator position, QgsPoint point );
+%Docstring
+Replace the control point at ``position``.
+%End
+
+    const std::vector<QgsPoint> controlPoints() const;
+%Docstring
+Returns the control points.
+%End
+
+    void setControlPoints( const std::vector<QgsPoint> &controlPoints );
+%Docstring
+Replaces the array of control points.
+%End
+
+    const std::vector<double> knotVector() const;
+%Docstring
+Returns the knot vector.
+%End
+
+    QgsPointSequence points evaluates( const double start = 0, const double stop = 1 );
+%Docstring
+Returns points on the curve between [0..1]
+%End
+
+    QgsLineString *toLineString( void );
+%Docstring
+Returns spline as LineString
+%End
+
+  protected:
+
+    void computeUniformKnotVector();
+}
+/************************************************************************
+ * This file has been generated automatically from                      *
+ *                                                                      *
+ * qgsspline.h                                                          *
+ *                                                                      *
+ * Do not edit manually ! Edit header and run scripts/sipify.pl again   *
+ ************************************************************************/

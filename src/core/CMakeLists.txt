@@ -665,6 +665,8 @@ SET(QGIS_CORE_SRCS
   geometry/qgswkbptr.cpp
   geometry/qgswkbtypes.cpp
 
+  geometry/spline/qgsspline.cpp
+
   3d/qgs3drendererregistry.cpp
   3d/qgs3dsymbolregistry.cpp
   3d/qgsabstract3dsymbol.cpp
@@ -1473,6 +1475,10 @@ SET(QGIS_CORE_PRIVATE_HDRS
   qgsproperty_p.h
   qgsrelation_p.h
   qgsspatialindexkdbush_p.h
+  geometry/spline/qgsspline.h
+
+  3d/qgs3drendererregistry.h
+  3d/qgsabstract3drenderer.h
 
   textrenderer/qgstextrenderer_p.h
 )
@@ -1539,6 +1545,7 @@ INCLUDE_DIRECTORIES(
   expression
   fieldformatter
   geometry
+  geometry/spline
   geocms
   geocms/geonode
   labeling
