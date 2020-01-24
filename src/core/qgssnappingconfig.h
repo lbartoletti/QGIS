@@ -17,14 +17,15 @@
 #define QGSPROJECTSNAPPINGSETTINGS_H
 
 #include <QHash>
-
 #include "qgis_core.h"
 #include "qgstolerance.h"
+#include <QMetaEnum>
 
 class QDomDocument;
 class QgsProject;
 class QgsVectorLayer;
 
+#include <QDebug>
 
 /**
  * \ingroup core
@@ -52,6 +53,7 @@ class CORE_EXPORT QgsSnappingConfig
 
     /**
      * SnappingType defines on what object the snapping is performed
+     * \deprecated since QGIS 3.12 use SnappingTypeFlag instead.
      */
     enum SnappingType
     {
@@ -59,7 +61,66 @@ class CORE_EXPORT QgsSnappingConfig
       VertexAndSegment = 2, //!< Both on vertices and segments
       Segment = 3, //!< On segments only
     };
-    Q_ENUM( SnappingType )
+    // TODO QGIS 4: remove
+    // this could not be tagged with Q_DECL_DEPRECATED due to Doxygen warning
+    // might be fixed in newer Doxygen (does not on 1.8.15, might be ok on 1.8.16)
+
+    /**
+     * SnappingTypeFlag defines on what object the snapping is performed
+     * \since QGIS 3.12
+     */
+    enum class SnappingTypes
+    {
+      NoSnapFlag = 0, //!< No snapping
+      VertexFlag = 1, //!< On vertices
+      SegmentFlag = 2, //!< On segments
+      AreaFlag = 4, //!< On Area
+      CentroidFlag = 8, //!< On centroid
+      MiddleOfSegmentFlag = 16, //!< On Middle segment
+    };
+    Q_ENUM( SnappingTypes )
+    Q_DECLARE_FLAGS( SnappingTypeFlag, SnappingTypes )
+    Q_FLAG( SnappingTypeFlag )
+
+    /**
+     * Convenient method to returns the translated name of the enum type
+     * QgsSnappingConfig::SnappingTypeFlag
+     *
+     * \since QGIS 3.12
+     */
+    static const QString snappingTypeFlagToString( SnappingTypeFlag type, int maximumTypeVisible = 2 )
+    {
+      QString modes;
+      int activeTypes = 0;
+
+      if ( type.testFlag( QgsSnappingConfig::SnappingTypes::NoSnapFlag ) )
+        return QObject::tr( "No Snapping" );
+
+      std::map<QgsSnappingConfig::SnappingTypeFlag, QString> typesMap;
+      typesMap.insert( { QgsSnappingConfig::SnappingTypes::VertexFlag, QObject::tr( "Vertex" ) } );
+      typesMap.insert( { QgsSnappingConfig::SnappingTypes::SegmentFlag, QObject::tr( "Segment" ) } );
+      typesMap.insert( { QgsSnappingConfig::SnappingTypes::AreaFlag, QObject::tr( "Area" ) } );
+      typesMap.insert( { QgsSnappingConfig::SnappingTypes::CentroidFlag, QObject::tr( "Centroid" ) } );
+      typesMap.insert( { QgsSnappingConfig::SnappingTypes::MiddleOfSegmentFlag, QObject::tr( "Middle of Segments" ) } );
+      for ( auto it = typesMap.cbegin(); it != typesMap.cend(); ++it )
+      {
+        if ( type & it->first )
+        {
+          if ( activeTypes == maximumTypeVisible )
+          {
+            modes.append( QObject::tr( ", …" ) );
+            break;
+          }
+          if ( activeTypes > 0 )
+            modes.append( QObject::tr( ", " ) );
+          modes.append( it->second );
+          activeTypes++;
+        }
+      }
+
+      return modes;
+    }
+
 
     /**
      * \ingroup core
@@ -76,8 +137,19 @@ class CORE_EXPORT QgsSnappingConfig
          * \param type
          * \param tolerance
          * \param units
+         * \deprecated since QGIS 3.12 use the method with SnappingTypeFlag instead.
          */
-        IndividualLayerSettings( bool enabled, QgsSnappingConfig::SnappingType type, double tolerance, QgsTolerance::UnitType units );
+        Q_DECL_DEPRECATED IndividualLayerSettings( bool enabled, SnappingType type, double tolerance, QgsTolerance::UnitType units ) SIP_DEPRECATED;
+
+        /**
+         * \brief IndividualLayerSettings
+         * \param enabled
+         * \param type
+         * \param tolerance
+         * \param units
+         * \since QGIS 3.12
+         */
+        IndividualLayerSettings( bool enabled, SnappingTypeFlag type, double tolerance, QgsTolerance::UnitType units );
 
         /**
          * Constructs an invalid setting
@@ -93,11 +165,29 @@ class CORE_EXPORT QgsSnappingConfig
         //! enables the snapping
         void setEnabled( bool enabled );
 
-        //! Returns the type (vertices and/or segments)
-        QgsSnappingConfig::SnappingType type() const;
+        /**
+         * Returns the flags type (vertices | segments | area | centroid | middle)
+         * \since QGIS 3.12
+         */
+        QgsSnappingConfig::SnappingTypeFlag typeFlag() const;
 
-        //! define the type of snapping
-        void setType( QgsSnappingConfig::SnappingType type );
+        /**
+         * Returns the flags type (vertices | segments | area | centroid | middle)
+         * \deprecated since QGIS 3.12 use typeFlag instead.
+         */
+        Q_DECL_DEPRECATED QgsSnappingConfig::SnappingType type() const SIP_DEPRECATED;
+
+        /**
+         * define the type of snapping
+        * \deprecated since QGIS 3.12 use setTypeFlag instead.
+        */
+        Q_DECL_DEPRECATED void setType( QgsSnappingConfig::SnappingType type ) SIP_DEPRECATED;
+
+        /**
+         * define the type of snapping
+         * \since QGIS 3.12
+         */
+        void setTypeFlag( QgsSnappingConfig::SnappingTypeFlag type );
 
         //! Returns the tolerance
         double tolerance() const;
@@ -121,7 +211,7 @@ class CORE_EXPORT QgsSnappingConfig
       private:
         bool mValid = false;
         bool mEnabled = false;
-        SnappingType mType = Vertex;
+        SnappingTypeFlag mType = SnappingTypes::VertexFlag;
         double mTolerance = 0;
         QgsTolerance::UnitType mUnits = QgsTolerance::Pixels;
     };
@@ -148,11 +238,29 @@ class CORE_EXPORT QgsSnappingConfig
     //! define the mode of snapping
     void setMode( SnappingMode mode );
 
-    //! Returns the type (vertices and/or segments)
-    SnappingType type() const;
+    /**
+     * Returns the flags type (vertices | segments | area | centroid | middle)
+     * \since QGIS 3.12
+     */
+    QgsSnappingConfig::SnappingTypeFlag typeFlag() const;
 
-    //! define the type of snapping
-    void setType( SnappingType type );
+    /**
+     * Returns the flags type (vertices | segments | area | centroid | middle)
+     * \deprecated since QGIS 3.12 use typeFlag instead.
+     */
+    Q_DECL_DEPRECATED QgsSnappingConfig::SnappingType type() const SIP_DEPRECATED;
+
+    /**
+     * define the type of snapping
+    * \deprecated since QGIS 3.12 use setTypeFlag instead.
+    */
+    Q_DECL_DEPRECATED void setType( QgsSnappingConfig::SnappingType type );
+
+    /**
+     * define the type of snapping
+     * \since QGIS 3.12
+     */
+    void setTypeFlag( QgsSnappingConfig::SnappingTypeFlag type );
 
     //! Returns the tolerance
     double tolerance() const;
@@ -288,7 +396,7 @@ class CORE_EXPORT QgsSnappingConfig
     QgsProject *mProject = nullptr;
     bool mEnabled = false;
     SnappingMode mMode = ActiveLayer;
-    SnappingType mType = Vertex;
+    SnappingTypeFlag mType = SnappingTypes::VertexFlag;
     double mTolerance = 0.0;
     QgsTolerance::UnitType mUnits = QgsTolerance::ProjectUnits;
     bool mIntersectionSnapping = false;
@@ -296,5 +404,6 @@ class CORE_EXPORT QgsSnappingConfig
     QHash<QgsVectorLayer *, IndividualLayerSettings> mIndividualLayerSettings;
 
 };
+Q_DECLARE_OPERATORS_FOR_FLAGS( QgsSnappingConfig::SnappingTypeFlag )
 
 #endif // QGSPROJECTSNAPPINGSETTINGS_H
