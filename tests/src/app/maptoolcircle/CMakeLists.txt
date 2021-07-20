@@ -56,6 +56,8 @@ set(TESTS
   testqgsmaptoolcirclezm.cpp
   )
 
+#add_executable(testqgspolymaptoolcircle testqgspolymaptoolcircle.cpp testqgspolymaptoolcircle.h)
+
 foreach(TESTSRC ${TESTS})
     ADD_QGIS_TEST(${TESTSRC})
 endforeach(TESTSRC)
