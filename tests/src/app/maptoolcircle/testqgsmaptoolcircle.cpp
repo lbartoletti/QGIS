@@ -27,9 +27,8 @@
 #include "qgsmaptoolcircle3points.h"
 #include "qgsmaptoolcirclecenterpoint.h"
 
-#include "testqgspolymaptoolcircle.h"
 
-class TestQgsMapToolCircle : public TestQgsPolyMapToolCircle
+class TestQgsMapToolCircle : public QObject
 {
     Q_OBJECT
 
@@ -37,6 +36,9 @@ class TestQgsMapToolCircle : public TestQgsPolyMapToolCircle
     TestQgsMapToolCircle();
 
   private slots:
+    void initTestCase();
+    void cleanupTestCase();
+
     void testCircleFrom2Points();
     void testCircleFrom2PointsWithDeletedVertex();
     void testCircleFrom3Points();
@@ -45,21 +47,55 @@ class TestQgsMapToolCircle : public TestQgsPolyMapToolCircle
     void testCircleFromCenterPointWithDeletedVertex();
 
   private:
-    QgsVectorLayer* getLayer();
+    QgisApp *mQgisApp = nullptr;
+    QgsMapToolCapture *mParentTool = nullptr;
+    QgsMapCanvas *mCanvas = nullptr;
+    QgsVectorLayer *mLayer = nullptr;
 };
 
 TestQgsMapToolCircle::TestQgsMapToolCircle() = default;
 
 
 //runs before all tests
-QgsVectorLayer* TestQgsMapToolCircle::getLayer() {
-  return new QgsVectorLayer( QStringLiteral( "LineString?crs=EPSG:27700" ), QStringLiteral( "layer line " ), QStringLiteral( "memory" ) );
+void TestQgsMapToolCircle::initTestCase()
+{
+  QgsApplication::init();
+  QgsApplication::initQgis();
+
+  mQgisApp = new QgisApp();
+
+  mCanvas = new QgsMapCanvas();
+  mCanvas->setDestinationCrs( QgsCoordinateReferenceSystem( QStringLiteral( "EPSG:27700" ) ) );
+
+  // make testing layers
+  mLayer = new QgsVectorLayer( QStringLiteral( "LineString?crs=EPSG:27700" ), QStringLiteral( "layer line " ), QStringLiteral( "memory" ) );
+  QVERIFY( mLayer->isValid() );
+  QgsProject::instance()->addMapLayers( QList<QgsMapLayer *>() << mLayer );
+
+  // set layers in canvas
+  mCanvas->setLayers( QList<QgsMapLayer *>() << mLayer );
+  mCanvas->setCurrentLayer( mLayer );
+
+  mParentTool = new QgsMapToolAddFeature( mCanvas, QgsMapToolCapture::CaptureLine );
 }
 
+void TestQgsMapToolCircle::cleanupTestCase()
+{
+  QgsApplication::exitQgis();
+}
 
 void TestQgsMapToolCircle::testCircleFrom2Points()
 {
-  QgsFeatureId newFid = drawCircleFrom2Points( mParentTool, mCanvas, mLayer );
+  mLayer->startEditing();
+
+  QgsMapToolCircle2Points mapTool( mParentTool, mCanvas );
+  mCanvas->setMapTool( &mapTool );
+
+  TestQgsMapToolAdvancedDigitizingUtils utils( &mapTool );
+  utils.mouseClick( 0, 0, Qt::LeftButton );
+  utils.mouseMove( 0, 2 );
+  utils.mouseClick( 0, 2, Qt::RightButton );
+  QgsFeatureId newFid = utils.newFeatureId();
 
   QCOMPARE( mLayer->featureCount(), ( long )1 );
   QgsFeature f = mLayer->getFeature( newFid );
@@ -72,7 +108,19 @@ void TestQgsMapToolCircle::testCircleFrom2Points()
 
 void TestQgsMapToolCircle::testCircleFrom2PointsWithDeletedVertex()
 {
-  QgsFeatureId newFid = drawCircleFrom2PointsWithDeletedVertex( mParentTool, mCanvas, mLayer );
+  mLayer->startEditing();
+
+  QgsMapToolCircle2Points mapTool( mParentTool, mCanvas );
+  mCanvas->setMapTool( &mapTool );
+
+  TestQgsMapToolAdvancedDigitizingUtils utils( &mapTool );
+
+  utils.mouseClick( 4, 1, Qt::LeftButton );
+  utils.keyClick( Qt::Key_Backspace );
+  utils.mouseClick( 0, 0, Qt::LeftButton );
+  utils.mouseMove( 0, 2 );
+  utils.mouseClick( 0, 2, Qt::RightButton );
+  QgsFeatureId newFid = utils.newFeatureId();
 
   QCOMPARE( mLayer->featureCount(), ( long )1 );
   QgsFeature f = mLayer->getFeature( newFid );
@@ -85,7 +133,17 @@ void TestQgsMapToolCircle::testCircleFrom2PointsWithDeletedVertex()
 
 void TestQgsMapToolCircle::testCircleFrom3Points()
 {
-  QgsFeatureId newFid = drawCircleFrom3Points( mParentTool, mCanvas, mLayer );
+  mLayer->startEditing();
+
+  QgsMapToolCircle3Points mapTool( mParentTool, mCanvas );
+  mCanvas->setMapTool( &mapTool );
+
+  TestQgsMapToolAdvancedDigitizingUtils utils( &mapTool );
+  utils.mouseClick( 0, 0, Qt::LeftButton );
+  utils.mouseClick( 0, 2, Qt::LeftButton );
+  utils.mouseMove( 1, 1 );
+  utils.mouseClick( 1, 1, Qt::RightButton );
+  QgsFeatureId newFid = utils.newFeatureId();
 
   QCOMPARE( mLayer->featureCount(), ( long )1 );
   QgsFeature f = mLayer->getFeature( newFid );
@@ -98,7 +156,19 @@ void TestQgsMapToolCircle::testCircleFrom3Points()
 
 void TestQgsMapToolCircle::testCircleFrom3PointsWithDeletedVertex()
 {
-  QgsFeatureId newFid = drawCircleFrom3PointsWithDeletedVertex( mParentTool, mCanvas, mLayer );
+  mLayer->startEditing();
+
+  QgsMapToolCircle3Points mapTool( mParentTool, mCanvas );
+  mCanvas->setMapTool( &mapTool );
+
+  TestQgsMapToolAdvancedDigitizingUtils utils( &mapTool );
+  utils.mouseClick( 0, 0, Qt::LeftButton );
+  utils.mouseClick( 4, 1, Qt::LeftButton );
+  utils.keyClick( Qt::Key_Backspace );
+  utils.mouseClick( 0, 2, Qt::LeftButton );
+  utils.mouseMove( 1, 1 );
+  utils.mouseClick( 1, 1, Qt::RightButton );
+  QgsFeatureId newFid = utils.newFeatureId();
 
   QCOMPARE( mLayer->featureCount(), ( long )1 );
   QgsFeature f = mLayer->getFeature( newFid );
@@ -111,7 +181,16 @@ void TestQgsMapToolCircle::testCircleFrom3PointsWithDeletedVertex()
 
 void TestQgsMapToolCircle::testCircleFromCenterPoint()
 {
-  QgsFeatureId newFid = drawCircleFromCenterPoint( mParentTool, mCanvas, mLayer );
+  mLayer->startEditing();
+
+  QgsMapToolCircleCenterPoint mapTool( mParentTool, mCanvas );
+  mCanvas->setMapTool( &mapTool );
+
+  TestQgsMapToolAdvancedDigitizingUtils utils( &mapTool );
+  utils.mouseClick( 0, 0, Qt::LeftButton );
+  utils.mouseMove( 0, 2 );
+  utils.mouseClick( 0, 2, Qt::RightButton );
+  QgsFeatureId newFid = utils.newFeatureId();
 
   QCOMPARE( mLayer->featureCount(), ( long )1 );
   QgsFeature f = mLayer->getFeature( newFid );
@@ -124,7 +203,19 @@ void TestQgsMapToolCircle::testCircleFromCenterPoint()
 
 void TestQgsMapToolCircle::testCircleFromCenterPointWithDeletedVertex()
 {
-  QgsFeatureId newFid = drawCircleFromCenterPointWithDeletedVertex( mParentTool, mCanvas, mLayer );
+  mLayer->startEditing();
+
+  QgsMapToolCircleCenterPoint mapTool( mParentTool, mCanvas );
+  mCanvas->setMapTool( &mapTool );
+
+  TestQgsMapToolAdvancedDigitizingUtils utils( &mapTool );
+
+  utils.mouseClick( 4, 1, Qt::LeftButton );
+  utils.keyClick( Qt::Key_Backspace );
+  utils.mouseClick( 0, 0, Qt::LeftButton );
+  utils.mouseMove( 0, 2 );
+  utils.mouseClick( 0, 2, Qt::RightButton );
+  QgsFeatureId newFid = utils.newFeatureId();
 
   QCOMPARE( mLayer->featureCount(), ( long )1 );
   QgsFeature f = mLayer->getFeature( newFid );

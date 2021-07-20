@@ -13,9 +13,6 @@
  *                                                                         *
  ***************************************************************************/
 
-//#ifndef QGSMAPTOOLADDFEATURE_H
-//#define QGSMAPTOOLADDFEATURE_H
-
 #include "qgsmaptooldigitizefeature.h"
 #include "qgis_app.h"
 
@@ -39,6 +36,3 @@ class APP_EXPORT QgsMapToolAddFeature : public QgsMapToolDigitizeFeature
     */
     bool mCheckGeometryType;
 };
-
-
-//#endif // QGSMAPTOOLADDFEATURE_H

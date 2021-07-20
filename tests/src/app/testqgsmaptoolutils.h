@@ -15,9 +15,6 @@
  *                                                                         *
  ***************************************************************************/
 
-#ifndef TESTQGSMAPTOOLUTILS_H
-#define TESTQGSMAPTOOLUTILS_H
-
 #include "qgstest.h"
 
 #include "qgisapp.h"
@@ -199,4 +196,3 @@ class TestQgsMapToolUtils
     QgsMapTool *mMapTool = nullptr;
 };
 
-#endif // TESTQGSMAPTOOLUTILS_H
