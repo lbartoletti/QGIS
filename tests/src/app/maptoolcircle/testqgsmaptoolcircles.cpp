@@ -1,9 +1,11 @@
 /***************************************************************************
      testqgsmaptoolcircle.cpp
      ------------------------
-    Date                 : April 2021
+    Date                 : July 2021
     Copyright            : (C) 2021 by Loïc Bartoletti
+                           (C) 2021 by Antoine Facchini
     Email                : loic dot bartoletti @oslandia dot com
+                           antoine dot facchini @oslandia dot com
  ***************************************************************************
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
@@ -46,22 +48,23 @@ class TestQgsMapToolCircles : public QObject
     QgisApp *mQgisApp = nullptr;
     QgsMapToolCapture *mParentTool = nullptr;
     QgsMapCanvas *mCanvas = nullptr;
+    QMap<QString, QgsVectorLayer *> mVectorLayerMap = {};
 
 
-    const QList<QString> coordinateList =
+    const QList<QString> mCoordinateList =
     {
       "XY", "XYZ", "XYM", "XYZM"
     };
-    const QList<QString> drawingCircleMethods =
+    const QList<QString> mDrawingCircleMethods =
     {
       "2Points", "2PointsWithDeletedVertex",
       "3Points", "3PointsWithDeletedVertex",
       "centerPoint", "centerPointWithDeletedVertex",
     };
-    QMap<QString, QString> drawFunctionUserNames;
-    QMap<QString, QString> expectedWkts;
+    QMap<QString, QString> mDrawFunctionUserNames = {};
+    QMap<QString, QgsFeatureId( TestQgsMapToolCircles::* )()> mDrawFunctionPtrMap = {};
+    QMap<QString, QString> mExpectedWkts = {};
 
-    QMap<QString, QgsVectorLayer *> vectorLayerMap;
 
     void initAttributs();
 
@@ -71,8 +74,6 @@ class TestQgsMapToolCircles : public QObject
     QgsFeatureId drawCircleFrom3PointsWithDeletedVertex();
     QgsFeatureId drawCircleFromCenterPoint();
     QgsFeatureId drawCircleFromCenterPointWithDeletedVertex();
-
-    QgsFeatureId drawCircle( QString );
 };
 
 TestQgsMapToolCircles::TestQgsMapToolCircles() = default;
@@ -88,23 +89,23 @@ void TestQgsMapToolCircles::initTestCase()
   mCanvas = new QgsMapCanvas();
   mCanvas->setDestinationCrs( QgsCoordinateReferenceSystem( QStringLiteral( "EPSG:27700" ) ) );
 
-  QList<QgsMapLayer *> layerList;
   // make testing layers
-  vectorLayerMap["XY"] = new QgsVectorLayer( QStringLiteral( "LineString?crs=EPSG:27700" ), QStringLiteral( "layer line " ), QStringLiteral( "memory" ) );
-  QVERIFY( vectorLayerMap["XY"]->isValid() );
-  layerList << vectorLayerMap["XY"];
+  QList<QgsMapLayer *> layerList;
+  mVectorLayerMap["XY"] = new QgsVectorLayer( QStringLiteral( "LineString?crs=EPSG:27700" ), QStringLiteral( "layer line " ), QStringLiteral( "memory" ) );
+  QVERIFY( mVectorLayerMap["XY"]->isValid() );
+  layerList << mVectorLayerMap["XY"];
 
-  vectorLayerMap["XYZ"] = new QgsVectorLayer( QStringLiteral( "LineStringZ?crs=EPSG:27700" ), QStringLiteral( "layer line Z" ), QStringLiteral( "memory" ) );
-  QVERIFY( vectorLayerMap["XYZ"]->isValid() );
-  layerList << vectorLayerMap["XYZ"];
+  mVectorLayerMap["XYZ"] = new QgsVectorLayer( QStringLiteral( "LineStringZ?crs=EPSG:27700" ), QStringLiteral( "layer line Z" ), QStringLiteral( "memory" ) );
+  QVERIFY( mVectorLayerMap["XYZ"]->isValid() );
+  layerList << mVectorLayerMap["XYZ"];
 
-  vectorLayerMap["XYM"] = new QgsVectorLayer( QStringLiteral( "LineStringM?crs=EPSG:27700" ), QStringLiteral( "layer line M" ), QStringLiteral( "memory" ) );
-  QVERIFY( vectorLayerMap["XYM"]->isValid() );
-  layerList << vectorLayerMap["XYM"];
+  mVectorLayerMap["XYM"] = new QgsVectorLayer( QStringLiteral( "LineStringM?crs=EPSG:27700" ), QStringLiteral( "layer line M" ), QStringLiteral( "memory" ) );
+  QVERIFY( mVectorLayerMap["XYM"]->isValid() );
+  layerList << mVectorLayerMap["XYM"];
 
-  vectorLayerMap["XYZM"] = new QgsVectorLayer( QStringLiteral( "LineStringZM?crs=EPSG:27700" ), QStringLiteral( "layer line ZM" ), QStringLiteral( "memory" ) );
-  QVERIFY( vectorLayerMap["XYZM"]->isValid() );
-  layerList << vectorLayerMap["XYZM"];
+  mVectorLayerMap["XYZM"] = new QgsVectorLayer( QStringLiteral( "LineStringZM?crs=EPSG:27700" ), QStringLiteral( "layer line ZM" ), QStringLiteral( "memory" ) );
+  QVERIFY( mVectorLayerMap["XYZM"]->isValid() );
+  layerList << mVectorLayerMap["XYZM"];
 
   // add and set layers in canvas
   QgsProject::instance()->addMapLayers( layerList );
@@ -117,40 +118,47 @@ void TestQgsMapToolCircles::initTestCase()
 
 void TestQgsMapToolCircles::initAttributs()
 {
-  drawFunctionUserNames["2Points"] = "from 2 points";
-  drawFunctionUserNames["2PointsWithDeletedVertex"] = "from 2 points with deleted vertex";
-  drawFunctionUserNames["3Points"] = "from 3 points";
-  drawFunctionUserNames["3PointsWithDeletedVertex"] = "from 3 points with deleted vertex";
-  drawFunctionUserNames["centerPoint"] = "from center point";
-  drawFunctionUserNames["centerPointWithDeletedVertex"] = "from center point with deleted vertex";
+  mDrawFunctionUserNames["2Points"] = "from 2 points";
+  mDrawFunctionUserNames["2PointsWithDeletedVertex"] = "from 2 points with deleted vertex";
+  mDrawFunctionUserNames["3Points"] = "from 3 points";
+  mDrawFunctionUserNames["3PointsWithDeletedVertex"] = "from 3 points with deleted vertex";
+  mDrawFunctionUserNames["centerPoint"] = "from center point";
+  mDrawFunctionUserNames["centerPointWithDeletedVertex"] = "from center point with deleted vertex";
 
-  expectedWkts[QString( "XY" ) + QString( "2Points" )] = "CompoundCurve (CircularString (0 2, 1 1, 0 0, -1 1, 0 2))";
-  expectedWkts[QString( "XY" ) + QString( "2PointsWithDeletedVertex" )] = "CompoundCurve (CircularString (0 2, 1 1, 0 0, -1 1, 0 2))";
-  expectedWkts[QString( "XY" ) + QString( "3Points" )] = "CompoundCurve (CircularString (0 2, 1 1, 0 0, -1 1, 0 2))";
-  expectedWkts[QString( "XY" ) + QString( "3PointsWithDeletedVertex" )] = "CompoundCurve (CircularString (0 2, 1 1, 0 0, -1 1, 0 2))";
-  expectedWkts[QString( "XY" ) + QString( "centerPoint" )] = "CompoundCurve (CircularString (0 2, 2 0, 0 -2, -2 0, 0 2))";
-  expectedWkts[QString( "XY" ) + QString( "centerPointWithDeletedVertex" )] = "CompoundCurve (CircularString (0 2, 2 0, 0 -2, -2 0, 0 2))";
+  mDrawFunctionPtrMap["2Points"] = &TestQgsMapToolCircles::drawCircleFrom2Points;
+  mDrawFunctionPtrMap["2PointsWithDeletedVertex"] = &TestQgsMapToolCircles::drawCircleFrom2PointsWithDeletedVertex;
+  mDrawFunctionPtrMap["3Points"] = &TestQgsMapToolCircles::drawCircleFrom3Points;
+  mDrawFunctionPtrMap["3PointsWithDeletedVertex"] = &TestQgsMapToolCircles::drawCircleFrom3PointsWithDeletedVertex;
+  mDrawFunctionPtrMap["centerPoint"] = &TestQgsMapToolCircles::drawCircleFromCenterPoint;
+  mDrawFunctionPtrMap["centerPointWithDeletedVertex"] = &TestQgsMapToolCircles::drawCircleFromCenterPointWithDeletedVertex;
 
-  expectedWkts[QString( "XYZ" ) + QString( "2Points" )] = "CompoundCurveZ (CircularStringZ (0 2 444, 1 1 444, 0 0 444, -1 1 444, 0 2 444))";
-  expectedWkts[QString( "XYZ" ) + QString( "2PointsWithDeletedVertex" )] = "CompoundCurveZ (CircularStringZ (0 2 444, 1 1 444, 0 0 444, -1 1 444, 0 2 444))";
-  expectedWkts[QString( "XYZ" ) + QString( "3Points" )] = "CompoundCurveZ (CircularStringZ (0 2 444, 1 1 444, 0 0 444, -1 1 444, 0 2 444))";
-  expectedWkts[QString( "XYZ" ) + QString( "3PointsWithDeletedVertex" )] = "CompoundCurveZ (CircularStringZ (0 2 444, 1 1 444, 0 0 444, -1 1 444, 0 2 444))";
-  expectedWkts[QString( "XYZ" ) + QString( "centerPoint" )] = "CompoundCurveZ (CircularStringZ (0 2 444, 2 0 444, 0 -2 444, -2 0 444, 0 2 444))";
-  expectedWkts[QString( "XYZ" ) + QString( "centerPointWithDeletedVertex" )] = "CompoundCurveZ (CircularStringZ (0 2 444, 2 0 444, 0 -2 444, -2 0 444, 0 2 444))";
+  mExpectedWkts[QStringLiteral( "XY" ) + QStringLiteral( "2Points" )] = "CompoundCurve (CircularString (0 2, 1 1, 0 0, -1 1, 0 2))";
+  mExpectedWkts[QStringLiteral( "XY" ) + QStringLiteral( "2PointsWithDeletedVertex" )] = "CompoundCurve (CircularString (0 2, 1 1, 0 0, -1 1, 0 2))";
+  mExpectedWkts[QStringLiteral( "XY" ) + QStringLiteral( "3Points" )] = "CompoundCurve (CircularString (0 2, 1 1, 0 0, -1 1, 0 2))";
+  mExpectedWkts[QStringLiteral( "XY" ) + QStringLiteral( "3PointsWithDeletedVertex" )] = "CompoundCurve (CircularString (0 2, 1 1, 0 0, -1 1, 0 2))";
+  mExpectedWkts[QStringLiteral( "XY" ) + QStringLiteral( "centerPoint" )] = "CompoundCurve (CircularString (0 2, 2 0, 0 -2, -2 0, 0 2))";
+  mExpectedWkts[QStringLiteral( "XY" ) + QStringLiteral( "centerPointWithDeletedVertex" )] = "CompoundCurve (CircularString (0 2, 2 0, 0 -2, -2 0, 0 2))";
 
-  expectedWkts[QString( "XYM" ) + QString( "2Points" )] = "CompoundCurveM (CircularStringM (0 2 222, 1 1 222, 0 0 222, -1 1 222, 0 2 222))";
-  expectedWkts[QString( "XYM" ) + QString( "2PointsWithDeletedVertex" )] = "CompoundCurveM (CircularStringM (0 2 222, 1 1 222, 0 0 222, -1 1 222, 0 2 222))";
-  expectedWkts[QString( "XYM" ) + QString( "3Points" )] = "CompoundCurveM (CircularStringM (0 2 222, 1 1 222, 0 0 222, -1 1 222, 0 2 222))";
-  expectedWkts[QString( "XYM" ) + QString( "3PointsWithDeletedVertex" )] = "CompoundCurveM (CircularStringM (0 2 222, 1 1 222, 0 0 222, -1 1 222, 0 2 222))";
-  expectedWkts[QString( "XYM" ) + QString( "centerPoint" )] = "CompoundCurveM (CircularStringM (0 2 222, 2 0 222, 0 -2 222, -2 0 222, 0 2 222))";
-  expectedWkts[QString( "XYM" ) + QString( "centerPointWithDeletedVertex" )] = "CompoundCurveM (CircularStringM (0 2 222, 2 0 222, 0 -2 222, -2 0 222, 0 2 222))";
+  mExpectedWkts[QStringLiteral( "XYZ" ) + QStringLiteral( "2Points" )] = "CompoundCurveZ (CircularStringZ (0 2 444, 1 1 444, 0 0 444, -1 1 444, 0 2 444))";
+  mExpectedWkts[QStringLiteral( "XYZ" ) + QStringLiteral( "2PointsWithDeletedVertex" )] = "CompoundCurveZ (CircularStringZ (0 2 444, 1 1 444, 0 0 444, -1 1 444, 0 2 444))";
+  mExpectedWkts[QStringLiteral( "XYZ" ) + QStringLiteral( "3Points" )] = "CompoundCurveZ (CircularStringZ (0 2 444, 1 1 444, 0 0 444, -1 1 444, 0 2 444))";
+  mExpectedWkts[QStringLiteral( "XYZ" ) + QStringLiteral( "3PointsWithDeletedVertex" )] = "CompoundCurveZ (CircularStringZ (0 2 444, 1 1 444, 0 0 444, -1 1 444, 0 2 444))";
+  mExpectedWkts[QStringLiteral( "XYZ" ) + QStringLiteral( "centerPoint" )] = "CompoundCurveZ (CircularStringZ (0 2 444, 2 0 444, 0 -2 444, -2 0 444, 0 2 444))";
+  mExpectedWkts[QStringLiteral( "XYZ" ) + QStringLiteral( "centerPointWithDeletedVertex" )] = "CompoundCurveZ (CircularStringZ (0 2 444, 2 0 444, 0 -2 444, -2 0 444, 0 2 444))";
 
-  expectedWkts[QString( "XYZM" ) + QString( "2Points" )] = "CompoundCurveZM (CircularStringZM (0 2 444 222, 1 1 444 222, 0 0 444 222, -1 1 444 222, 0 2 444 222))";
-  expectedWkts[QString( "XYZM" ) + QString( "2PointsWithDeletedVertex" )] = "CompoundCurveZM (CircularStringZM (0 2 444 222, 1 1 444 222, 0 0 444 222, -1 1 444 222, 0 2 444 222))";
-  expectedWkts[QString( "XYZM" ) + QString( "3Points" )] = "CompoundCurveZM (CircularStringZM (0 2 444 222, 1 1 444 222, 0 0 444 222, -1 1 444 222, 0 2 444 222))";
-  expectedWkts[QString( "XYZM" ) + QString( "3PointsWithDeletedVertex" )] = "CompoundCurveZM (CircularStringZM (0 2 444 222, 1 1 444 222, 0 0 444 222, -1 1 444 222, 0 2 444 222))";
-  expectedWkts[QString( "XYZM" ) + QString( "centerPoint" )] = "CompoundCurveZM (CircularStringZM (0 2 444 222, 2 0 444 222, 0 -2 444 222, -2 0 444 222, 0 2 444 222))";
-  expectedWkts[QString( "XYZM" ) + QString( "centerPointWithDeletedVertex" )] = "CompoundCurveZM (CircularStringZM (0 2 444 222, 2 0 444 222, 0 -2 444 222, -2 0 444 222, 0 2 444 222))";
+  mExpectedWkts[QStringLiteral( "XYM" ) + QStringLiteral( "2Points" )] = "CompoundCurveM (CircularStringM (0 2 222, 1 1 222, 0 0 222, -1 1 222, 0 2 222))";
+  mExpectedWkts[QStringLiteral( "XYM" ) + QStringLiteral( "2PointsWithDeletedVertex" )] = "CompoundCurveM (CircularStringM (0 2 222, 1 1 222, 0 0 222, -1 1 222, 0 2 222))";
+  mExpectedWkts[QStringLiteral( "XYM" ) + QStringLiteral( "3Points" )] = "CompoundCurveM (CircularStringM (0 2 222, 1 1 222, 0 0 222, -1 1 222, 0 2 222))";
+  mExpectedWkts[QStringLiteral( "XYM" ) + QStringLiteral( "3PointsWithDeletedVertex" )] = "CompoundCurveM (CircularStringM (0 2 222, 1 1 222, 0 0 222, -1 1 222, 0 2 222))";
+  mExpectedWkts[QStringLiteral( "XYM" ) + QStringLiteral( "centerPoint" )] = "CompoundCurveM (CircularStringM (0 2 222, 2 0 222, 0 -2 222, -2 0 222, 0 2 222))";
+  mExpectedWkts[QStringLiteral( "XYM" ) + QStringLiteral( "centerPointWithDeletedVertex" )] = "CompoundCurveM (CircularStringM (0 2 222, 2 0 222, 0 -2 222, -2 0 222, 0 2 222))";
+
+  mExpectedWkts[QStringLiteral( "XYZM" ) + QStringLiteral( "2Points" )] = "CompoundCurveZM (CircularStringZM (0 2 444 222, 1 1 444 222, 0 0 444 222, -1 1 444 222, 0 2 444 222))";
+  mExpectedWkts[QStringLiteral( "XYZM" ) + QStringLiteral( "2PointsWithDeletedVertex" )] = "CompoundCurveZM (CircularStringZM (0 2 444 222, 1 1 444 222, 0 0 444 222, -1 1 444 222, 0 2 444 222))";
+  mExpectedWkts[QStringLiteral( "XYZM" ) + QStringLiteral( "3Points" )] = "CompoundCurveZM (CircularStringZM (0 2 444 222, 1 1 444 222, 0 0 444 222, -1 1 444 222, 0 2 444 222))";
+  mExpectedWkts[QStringLiteral( "XYZM" ) + QStringLiteral( "3PointsWithDeletedVertex" )] = "CompoundCurveZM (CircularStringZM (0 2 444 222, 1 1 444 222, 0 0 444 222, -1 1 444 222, 0 2 444 222))";
+  mExpectedWkts[QStringLiteral( "XYZM" ) + QStringLiteral( "centerPoint" )] = "CompoundCurveZM (CircularStringZM (0 2 444 222, 2 0 444 222, 0 -2 444 222, -2 0 444 222, 0 2 444 222))";
+  mExpectedWkts[QStringLiteral( "XYZM" ) + QStringLiteral( "centerPointWithDeletedVertex" )] = "CompoundCurveZM (CircularStringZM (0 2 444 222, 2 0 444 222, 0 -2 444 222, -2 0 444 222, 0 2 444 222))";
 }
 
 void TestQgsMapToolCircles::cleanupTestCase()
@@ -245,38 +253,6 @@ QgsFeatureId TestQgsMapToolCircles::drawCircleFromCenterPointWithDeletedVertex()
   return utils.newFeatureId();
 }
 
-QgsFeatureId TestQgsMapToolCircles::drawCircle( QString drawMethod )
-{
-  if ( drawMethod == "2Points" )
-  {
-    return drawCircleFrom2Points();
-  }
-  else if ( drawMethod == "2PointsWithDeletedVertex" )
-  {
-    return drawCircleFrom2PointsWithDeletedVertex();
-  }
-  else if ( drawMethod == "3Points" )
-  {
-    return drawCircleFrom3Points();
-  }
-  else if ( drawMethod == "3PointsWithDeletedVertex" )
-  {
-    return drawCircleFrom3PointsWithDeletedVertex();
-  }
-  else if ( drawMethod == "centerPoint" )
-  {
-    return drawCircleFromCenterPoint();
-  }
-  else if ( drawMethod == "centerPointWithDeletedVertex" )
-  {
-    return drawCircleFromCenterPointWithDeletedVertex();
-  }
-  else
-  {
-    return FID_NULL;
-  }
-}
-
 
 void TestQgsMapToolCircles::testCircle_data()
 {
@@ -297,13 +273,13 @@ void TestQgsMapToolCircles::testCircle_data()
   QString drawMethod;
   QString rowStringName;
 
-  QListIterator<QString> coordinateIter( coordinateList );
-  QListIterator<QString> drawCircleIter( drawingCircleMethods );
+  QListIterator<QString> coordinateIter( mCoordinateList );
+  QListIterator<QString> drawCircleIter( mDrawingCircleMethods );
 
   while ( coordinateIter.hasNext() )
   {
     coordinate = coordinateIter.next();
-    mLayer = vectorLayerMap[coordinate];
+    mLayer = mVectorLayerMap[coordinate];
 
     mCanvas->setCurrentLayer( mLayer );
 
@@ -312,11 +288,11 @@ void TestQgsMapToolCircles::testCircle_data()
       drawMethod = drawCircleIter.next();
 
       mLayer->startEditing();
-      newFid = drawCircle( drawMethod );
+      newFid = ( ( *this ).*( mDrawFunctionPtrMap[drawMethod] ) )();
       f = mLayer->getFeature( newFid );
 
-      wkt = expectedWkts[coordinate + drawMethod];
-      rowStringName = coordinate + " " + drawFunctionUserNames[drawMethod];
+      wkt = mExpectedWkts[coordinate + drawMethod];
+      rowStringName = coordinate + " " + mDrawFunctionUserNames[drawMethod];
       QTest::newRow( rowStringName.toStdString().c_str() ) << f.geometry().asWkt() << wkt << mLayer->featureCount() << ( long )1;
 
       mLayer->rollBack();
