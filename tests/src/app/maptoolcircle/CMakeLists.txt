@@ -50,6 +50,8 @@ endmacro (ADD_QGIS_TEST)
 # Tests:
 
 set(TESTS
+  testqgsmaptoolcircles.cpp
+
   testqgsmaptoolcircle.cpp
   testqgsmaptoolcirclez.cpp
   testqgsmaptoolcirclem.cpp
