@@ -62,7 +62,7 @@ class TestQgsMapToolCircle : public QObject
       "centerPoint", "centerPointWithDeletedVertex",
     };
     QMap<QString, QString> mDrawFunctionUserNames = {};
-    QMap<QString, QgsFeatureId( TestQgsMapToolCircle::* )()> mDrawFunctionPtrMap = {};
+    QMap<QString, std::function<QgsFeatureId( void )>> mDrawFunctionPtrMap = {};
     QMap<QString, QString> mExpectedWkts = {};
 
 
@@ -126,12 +126,12 @@ void TestQgsMapToolCircle::initAttributs()
   mDrawFunctionUserNames["centerPoint"] = "from center point";
   mDrawFunctionUserNames["centerPointWithDeletedVertex"] = "from center point with deleted vertex";
 
-  mDrawFunctionPtrMap["2Points"] = &TestQgsMapToolCircle::drawCircleFrom2Points;
-  mDrawFunctionPtrMap["2PointsWithDeletedVertex"] = &TestQgsMapToolCircle::drawCircleFrom2PointsWithDeletedVertex;
-  mDrawFunctionPtrMap["3Points"] = &TestQgsMapToolCircle::drawCircleFrom3Points;
-  mDrawFunctionPtrMap["3PointsWithDeletedVertex"] = &TestQgsMapToolCircle::drawCircleFrom3PointsWithDeletedVertex;
-  mDrawFunctionPtrMap["centerPoint"] = &TestQgsMapToolCircle::drawCircleFromCenterPoint;
-  mDrawFunctionPtrMap["centerPointWithDeletedVertex"] = &TestQgsMapToolCircle::drawCircleFromCenterPointWithDeletedVertex;
+  mDrawFunctionPtrMap["2Points"] = std::bind( &TestQgsMapToolCircle::drawCircleFrom2Points, this );
+  mDrawFunctionPtrMap["2PointsWithDeletedVertex"] = std::bind( &TestQgsMapToolCircle::drawCircleFrom2PointsWithDeletedVertex, this );
+  mDrawFunctionPtrMap["3Points"] = std::bind( &TestQgsMapToolCircle::drawCircleFrom3Points, this );
+  mDrawFunctionPtrMap["3PointsWithDeletedVertex"] = std::bind( &TestQgsMapToolCircle::drawCircleFrom3PointsWithDeletedVertex, this );
+  mDrawFunctionPtrMap["centerPoint"] = std::bind( &TestQgsMapToolCircle::drawCircleFromCenterPoint, this );
+  mDrawFunctionPtrMap["centerPointWithDeletedVertex"] = std::bind( &TestQgsMapToolCircle::drawCircleFromCenterPointWithDeletedVertex, this );
 
   mExpectedWkts[QStringLiteral( "XY" ) + QStringLiteral( "2Points" )] = "CompoundCurve (CircularString (0 2, 1 1, 0 0, -1 1, 0 2))";
   mExpectedWkts[QStringLiteral( "XY" ) + QStringLiteral( "2PointsWithDeletedVertex" )] = "CompoundCurve (CircularString (0 2, 1 1, 0 0, -1 1, 0 2))";
@@ -289,7 +289,7 @@ void TestQgsMapToolCircle::testCircle_data()
       drawMethod = drawCircleIter.next();
 
       mLayer->startEditing();
-      newFid = ( ( *this ).*( mDrawFunctionPtrMap[drawMethod] ) )();
+      newFid = mDrawFunctionPtrMap[drawMethod]();
       f = mLayer->getFeature( newFid );
 
       wkt = mExpectedWkts[coordinate + drawMethod];
