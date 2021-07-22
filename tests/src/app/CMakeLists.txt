@@ -26,6 +26,7 @@ set(TESTS
   testqgsmaptoolcircularstring.cpp
   testqgsmaptoolmovefeature.cpp
   testqgsmaptoolellipse.cpp
+  testqgsmaptoolcircle.cpp
   testqgsmaptoolrectangle.cpp
   testqgsmaptoolregularpolygon.cpp
   testqgsmaptoolsplitparts.cpp
@@ -52,4 +53,3 @@ endforeach(TESTSRC)
 
 add_subdirectory(maptooladdfeaturepoint)
 add_subdirectory(maptooladdfeatureline)
-add_subdirectory(maptoolcircle)

@@ -30,12 +30,12 @@
 #include "qgsmaptoolcirclecenterpoint.h"
 
 
-class TestQgsMapToolCircles : public QObject
+class TestQgsMapToolCircle : public QObject
 {
     Q_OBJECT
 
   public:
-    TestQgsMapToolCircles();
+    TestQgsMapToolCircle();
 
   private slots:
     void initTestCase();
@@ -62,7 +62,7 @@ class TestQgsMapToolCircles : public QObject
       "centerPoint", "centerPointWithDeletedVertex",
     };
     QMap<QString, QString> mDrawFunctionUserNames = {};
-    QMap<QString, QgsFeatureId( TestQgsMapToolCircles::* )()> mDrawFunctionPtrMap = {};
+    QMap<QString, QgsFeatureId( TestQgsMapToolCircle::* )()> mDrawFunctionPtrMap = {};
     QMap<QString, QString> mExpectedWkts = {};
 
 
@@ -76,10 +76,10 @@ class TestQgsMapToolCircles : public QObject
     QgsFeatureId drawCircleFromCenterPointWithDeletedVertex();
 };
 
-TestQgsMapToolCircles::TestQgsMapToolCircles() = default;
+TestQgsMapToolCircle::TestQgsMapToolCircle() = default;
 
 //runs before all tests
-void TestQgsMapToolCircles::initTestCase()
+void TestQgsMapToolCircle::initTestCase()
 {
   QgsApplication::init();
   QgsApplication::initQgis();
@@ -116,7 +116,7 @@ void TestQgsMapToolCircles::initTestCase()
   initAttributs();
 }
 
-void TestQgsMapToolCircles::initAttributs()
+void TestQgsMapToolCircle::initAttributs()
 {
   mDrawFunctionUserNames["2Points"] = "from 2 points";
   mDrawFunctionUserNames["2PointsWithDeletedVertex"] = "from 2 points with deleted vertex";
@@ -125,12 +125,12 @@ void TestQgsMapToolCircles::initAttributs()
   mDrawFunctionUserNames["centerPoint"] = "from center point";
   mDrawFunctionUserNames["centerPointWithDeletedVertex"] = "from center point with deleted vertex";
 
-  mDrawFunctionPtrMap["2Points"] = &TestQgsMapToolCircles::drawCircleFrom2Points;
-  mDrawFunctionPtrMap["2PointsWithDeletedVertex"] = &TestQgsMapToolCircles::drawCircleFrom2PointsWithDeletedVertex;
-  mDrawFunctionPtrMap["3Points"] = &TestQgsMapToolCircles::drawCircleFrom3Points;
-  mDrawFunctionPtrMap["3PointsWithDeletedVertex"] = &TestQgsMapToolCircles::drawCircleFrom3PointsWithDeletedVertex;
-  mDrawFunctionPtrMap["centerPoint"] = &TestQgsMapToolCircles::drawCircleFromCenterPoint;
-  mDrawFunctionPtrMap["centerPointWithDeletedVertex"] = &TestQgsMapToolCircles::drawCircleFromCenterPointWithDeletedVertex;
+  mDrawFunctionPtrMap["2Points"] = &TestQgsMapToolCircle::drawCircleFrom2Points;
+  mDrawFunctionPtrMap["2PointsWithDeletedVertex"] = &TestQgsMapToolCircle::drawCircleFrom2PointsWithDeletedVertex;
+  mDrawFunctionPtrMap["3Points"] = &TestQgsMapToolCircle::drawCircleFrom3Points;
+  mDrawFunctionPtrMap["3PointsWithDeletedVertex"] = &TestQgsMapToolCircle::drawCircleFrom3PointsWithDeletedVertex;
+  mDrawFunctionPtrMap["centerPoint"] = &TestQgsMapToolCircle::drawCircleFromCenterPoint;
+  mDrawFunctionPtrMap["centerPointWithDeletedVertex"] = &TestQgsMapToolCircle::drawCircleFromCenterPointWithDeletedVertex;
 
   mExpectedWkts[QStringLiteral( "XY" ) + QStringLiteral( "2Points" )] = "CompoundCurve (CircularString (0 2, 1 1, 0 0, -1 1, 0 2))";
   mExpectedWkts[QStringLiteral( "XY" ) + QStringLiteral( "2PointsWithDeletedVertex" )] = "CompoundCurve (CircularString (0 2, 1 1, 0 0, -1 1, 0 2))";
@@ -161,13 +161,13 @@ void TestQgsMapToolCircles::initAttributs()
   mExpectedWkts[QStringLiteral( "XYZM" ) + QStringLiteral( "centerPointWithDeletedVertex" )] = "CompoundCurveZM (CircularStringZM (0 2 444 222, 2 0 444 222, 0 -2 444 222, -2 0 444 222, 0 2 444 222))";
 }
 
-void TestQgsMapToolCircles::cleanupTestCase()
+void TestQgsMapToolCircle::cleanupTestCase()
 {
   QgsApplication::exitQgis();
 }
 
 
-QgsFeatureId TestQgsMapToolCircles::drawCircleFrom2Points()
+QgsFeatureId TestQgsMapToolCircle::drawCircleFrom2Points()
 {
   QgsMapToolCircle2Points mapTool( mParentTool, mCanvas );
   mCanvas->setMapTool( &mapTool );
@@ -180,7 +180,7 @@ QgsFeatureId TestQgsMapToolCircles::drawCircleFrom2Points()
   return utils.newFeatureId();
 }
 
-QgsFeatureId TestQgsMapToolCircles::drawCircleFrom2PointsWithDeletedVertex()
+QgsFeatureId TestQgsMapToolCircle::drawCircleFrom2PointsWithDeletedVertex()
 {
   QgsMapToolCircle2Points mapTool( mParentTool, mCanvas );
   mCanvas->setMapTool( &mapTool );
@@ -195,7 +195,7 @@ QgsFeatureId TestQgsMapToolCircles::drawCircleFrom2PointsWithDeletedVertex()
   return utils.newFeatureId();
 }
 
-QgsFeatureId TestQgsMapToolCircles::drawCircleFrom3Points()
+QgsFeatureId TestQgsMapToolCircle::drawCircleFrom3Points()
 {
   QgsMapToolCircle3Points mapTool( mParentTool, mCanvas );
   mCanvas->setMapTool( &mapTool );
@@ -209,7 +209,7 @@ QgsFeatureId TestQgsMapToolCircles::drawCircleFrom3Points()
   return utils.newFeatureId();
 }
 
-QgsFeatureId TestQgsMapToolCircles::drawCircleFrom3PointsWithDeletedVertex()
+QgsFeatureId TestQgsMapToolCircle::drawCircleFrom3PointsWithDeletedVertex()
 {
   QgsMapToolCircle3Points mapTool( mParentTool, mCanvas );
   mCanvas->setMapTool( &mapTool );
@@ -225,7 +225,7 @@ QgsFeatureId TestQgsMapToolCircles::drawCircleFrom3PointsWithDeletedVertex()
   return utils.newFeatureId();
 }
 
-QgsFeatureId TestQgsMapToolCircles::drawCircleFromCenterPoint()
+QgsFeatureId TestQgsMapToolCircle::drawCircleFromCenterPoint()
 {
   QgsMapToolCircleCenterPoint mapTool( mParentTool, mCanvas );
   mCanvas->setMapTool( &mapTool );
@@ -238,7 +238,7 @@ QgsFeatureId TestQgsMapToolCircles::drawCircleFromCenterPoint()
   return utils.newFeatureId();
 }
 
-QgsFeatureId TestQgsMapToolCircles::drawCircleFromCenterPointWithDeletedVertex()
+QgsFeatureId TestQgsMapToolCircle::drawCircleFromCenterPointWithDeletedVertex()
 {
   QgsMapToolCircleCenterPoint mapTool( mParentTool, mCanvas );
   mCanvas->setMapTool( &mapTool );
@@ -254,7 +254,7 @@ QgsFeatureId TestQgsMapToolCircles::drawCircleFromCenterPointWithDeletedVertex()
 }
 
 
-void TestQgsMapToolCircles::testCircle_data()
+void TestQgsMapToolCircle::testCircle_data()
 {
   QTest::addColumn<QString>( "wktGeometry" );
   QTest::addColumn<QString>( "wktExpected" );
@@ -301,7 +301,7 @@ void TestQgsMapToolCircles::testCircle_data()
   }
 }
 
-void TestQgsMapToolCircles::testCircle()
+void TestQgsMapToolCircle::testCircle()
 {
   QFETCH( qlonglong, featureCount );
   QFETCH( long, featureCountExpected );
@@ -313,5 +313,5 @@ void TestQgsMapToolCircles::testCircle()
 }
 
 
-QGSTEST_MAIN( TestQgsMapToolCircles )
-#include "testqgsmaptoolcircles.moc"
+QGSTEST_MAIN( TestQgsMapToolCircle )
+#include "testqgsmaptoolcircle.moc"
