@@ -133,33 +133,33 @@ void TestQgsMapToolCircle::initAttributs()
   mDrawFunctionPtrMap["centerPoint"] = std::bind( &TestQgsMapToolCircle::drawCircleFromCenterPoint, this );
   mDrawFunctionPtrMap["centerPointWithDeletedVertex"] = std::bind( &TestQgsMapToolCircle::drawCircleFromCenterPointWithDeletedVertex, this );
 
-  mExpectedWkts[QStringLiteral( "XY" ) + QStringLiteral( "2Points" )] = "CompoundCurve (CircularString (0 2, 1 1, 0 0, -1 1, 0 2))";
-  mExpectedWkts[QStringLiteral( "XY" ) + QStringLiteral( "2PointsWithDeletedVertex" )] = "CompoundCurve (CircularString (0 2, 1 1, 0 0, -1 1, 0 2))";
-  mExpectedWkts[QStringLiteral( "XY" ) + QStringLiteral( "3Points" )] = "CompoundCurve (CircularString (0 2, 1 1, 0 0, -1 1, 0 2))";
-  mExpectedWkts[QStringLiteral( "XY" ) + QStringLiteral( "3PointsWithDeletedVertex" )] = "CompoundCurve (CircularString (0 2, 1 1, 0 0, -1 1, 0 2))";
-  mExpectedWkts[QStringLiteral( "XY" ) + QStringLiteral( "centerPoint" )] = "CompoundCurve (CircularString (0 2, 2 0, 0 -2, -2 0, 0 2))";
-  mExpectedWkts[QStringLiteral( "XY" ) + QStringLiteral( "centerPointWithDeletedVertex" )] = "CompoundCurve (CircularString (0 2, 2 0, 0 -2, -2 0, 0 2))";
+  mExpectedWkts[QStringLiteral( "XY" "2Points" )] = "CompoundCurve (CircularString (0 2, 1 1, 0 0, -1 1, 0 2))";
+  mExpectedWkts[QStringLiteral( "XY" "2PointsWithDeletedVertex" )] = "CompoundCurve (CircularString (0 2, 1 1, 0 0, -1 1, 0 2))";
+  mExpectedWkts[QStringLiteral( "XY" "3Points" )] = "CompoundCurve (CircularString (0 2, 1 1, 0 0, -1 1, 0 2))";
+  mExpectedWkts[QStringLiteral( "XY" "3PointsWithDeletedVertex" )] = "CompoundCurve (CircularString (0 2, 1 1, 0 0, -1 1, 0 2))";
+  mExpectedWkts[QStringLiteral( "XY" "centerPoint" )] = "CompoundCurve (CircularString (0 2, 2 0, 0 -2, -2 0, 0 2))";
+  mExpectedWkts[QStringLiteral( "XY" "centerPointWithDeletedVertex" )] = "CompoundCurve (CircularString (0 2, 2 0, 0 -2, -2 0, 0 2))";
 
-  mExpectedWkts[QStringLiteral( "XYZ" ) + QStringLiteral( "2Points" )] = "CompoundCurveZ (CircularStringZ (0 2 444, 1 1 444, 0 0 444, -1 1 444, 0 2 444))";
-  mExpectedWkts[QStringLiteral( "XYZ" ) + QStringLiteral( "2PointsWithDeletedVertex" )] = "CompoundCurveZ (CircularStringZ (0 2 444, 1 1 444, 0 0 444, -1 1 444, 0 2 444))";
-  mExpectedWkts[QStringLiteral( "XYZ" ) + QStringLiteral( "3Points" )] = "CompoundCurveZ (CircularStringZ (0 2 444, 1 1 444, 0 0 444, -1 1 444, 0 2 444))";
-  mExpectedWkts[QStringLiteral( "XYZ" ) + QStringLiteral( "3PointsWithDeletedVertex" )] = "CompoundCurveZ (CircularStringZ (0 2 444, 1 1 444, 0 0 444, -1 1 444, 0 2 444))";
-  mExpectedWkts[QStringLiteral( "XYZ" ) + QStringLiteral( "centerPoint" )] = "CompoundCurveZ (CircularStringZ (0 2 444, 2 0 444, 0 -2 444, -2 0 444, 0 2 444))";
-  mExpectedWkts[QStringLiteral( "XYZ" ) + QStringLiteral( "centerPointWithDeletedVertex" )] = "CompoundCurveZ (CircularStringZ (0 2 444, 2 0 444, 0 -2 444, -2 0 444, 0 2 444))";
+  mExpectedWkts[QStringLiteral( "XYZ" "2Points" )] = "CompoundCurveZ (CircularStringZ (0 2 444, 1 1 444, 0 0 444, -1 1 444, 0 2 444))";
+  mExpectedWkts[QStringLiteral( "XYZ" "2PointsWithDeletedVertex" )] = "CompoundCurveZ (CircularStringZ (0 2 444, 1 1 444, 0 0 444, -1 1 444, 0 2 444))";
+  mExpectedWkts[QStringLiteral( "XYZ" "3Points" )] = "CompoundCurveZ (CircularStringZ (0 2 444, 1 1 444, 0 0 444, -1 1 444, 0 2 444))";
+  mExpectedWkts[QStringLiteral( "XYZ" "3PointsWithDeletedVertex" )] = "CompoundCurveZ (CircularStringZ (0 2 444, 1 1 444, 0 0 444, -1 1 444, 0 2 444))";
+  mExpectedWkts[QStringLiteral( "XYZ" "centerPoint" )] = "CompoundCurveZ (CircularStringZ (0 2 444, 2 0 444, 0 -2 444, -2 0 444, 0 2 444))";
+  mExpectedWkts[QStringLiteral( "XYZ" "centerPointWithDeletedVertex" )] = "CompoundCurveZ (CircularStringZ (0 2 444, 2 0 444, 0 -2 444, -2 0 444, 0 2 444))";
 
-  mExpectedWkts[QStringLiteral( "XYM" ) + QStringLiteral( "2Points" )] = "CompoundCurveM (CircularStringM (0 2 222, 1 1 222, 0 0 222, -1 1 222, 0 2 222))";
-  mExpectedWkts[QStringLiteral( "XYM" ) + QStringLiteral( "2PointsWithDeletedVertex" )] = "CompoundCurveM (CircularStringM (0 2 222, 1 1 222, 0 0 222, -1 1 222, 0 2 222))";
-  mExpectedWkts[QStringLiteral( "XYM" ) + QStringLiteral( "3Points" )] = "CompoundCurveM (CircularStringM (0 2 222, 1 1 222, 0 0 222, -1 1 222, 0 2 222))";
-  mExpectedWkts[QStringLiteral( "XYM" ) + QStringLiteral( "3PointsWithDeletedVertex" )] = "CompoundCurveM (CircularStringM (0 2 222, 1 1 222, 0 0 222, -1 1 222, 0 2 222))";
-  mExpectedWkts[QStringLiteral( "XYM" ) + QStringLiteral( "centerPoint" )] = "CompoundCurveM (CircularStringM (0 2 222, 2 0 222, 0 -2 222, -2 0 222, 0 2 222))";
-  mExpectedWkts[QStringLiteral( "XYM" ) + QStringLiteral( "centerPointWithDeletedVertex" )] = "CompoundCurveM (CircularStringM (0 2 222, 2 0 222, 0 -2 222, -2 0 222, 0 2 222))";
+  mExpectedWkts[QStringLiteral( "XYM" "2Points" )] = "CompoundCurveM (CircularStringM (0 2 222, 1 1 222, 0 0 222, -1 1 222, 0 2 222))";
+  mExpectedWkts[QStringLiteral( "XYM" "2PointsWithDeletedVertex" )] = "CompoundCurveM (CircularStringM (0 2 222, 1 1 222, 0 0 222, -1 1 222, 0 2 222))";
+  mExpectedWkts[QStringLiteral( "XYM" "3Points" )] = "CompoundCurveM (CircularStringM (0 2 222, 1 1 222, 0 0 222, -1 1 222, 0 2 222))";
+  mExpectedWkts[QStringLiteral( "XYM" "3PointsWithDeletedVertex" )] = "CompoundCurveM (CircularStringM (0 2 222, 1 1 222, 0 0 222, -1 1 222, 0 2 222))";
+  mExpectedWkts[QStringLiteral( "XYM" "centerPoint" )] = "CompoundCurveM (CircularStringM (0 2 222, 2 0 222, 0 -2 222, -2 0 222, 0 2 222))";
+  mExpectedWkts[QStringLiteral( "XYM" "centerPointWithDeletedVertex" )] = "CompoundCurveM (CircularStringM (0 2 222, 2 0 222, 0 -2 222, -2 0 222, 0 2 222))";
 
-  mExpectedWkts[QStringLiteral( "XYZM" ) + QStringLiteral( "2Points" )] = "CompoundCurveZM (CircularStringZM (0 2 444 222, 1 1 444 222, 0 0 444 222, -1 1 444 222, 0 2 444 222))";
-  mExpectedWkts[QStringLiteral( "XYZM" ) + QStringLiteral( "2PointsWithDeletedVertex" )] = "CompoundCurveZM (CircularStringZM (0 2 444 222, 1 1 444 222, 0 0 444 222, -1 1 444 222, 0 2 444 222))";
-  mExpectedWkts[QStringLiteral( "XYZM" ) + QStringLiteral( "3Points" )] = "CompoundCurveZM (CircularStringZM (0 2 444 222, 1 1 444 222, 0 0 444 222, -1 1 444 222, 0 2 444 222))";
-  mExpectedWkts[QStringLiteral( "XYZM" ) + QStringLiteral( "3PointsWithDeletedVertex" )] = "CompoundCurveZM (CircularStringZM (0 2 444 222, 1 1 444 222, 0 0 444 222, -1 1 444 222, 0 2 444 222))";
-  mExpectedWkts[QStringLiteral( "XYZM" ) + QStringLiteral( "centerPoint" )] = "CompoundCurveZM (CircularStringZM (0 2 444 222, 2 0 444 222, 0 -2 444 222, -2 0 444 222, 0 2 444 222))";
-  mExpectedWkts[QStringLiteral( "XYZM" ) + QStringLiteral( "centerPointWithDeletedVertex" )] = "CompoundCurveZM (CircularStringZM (0 2 444 222, 2 0 444 222, 0 -2 444 222, -2 0 444 222, 0 2 444 222))";
+  mExpectedWkts[QStringLiteral( "XYZM" "2Points" )] = "CompoundCurveZM (CircularStringZM (0 2 444 222, 1 1 444 222, 0 0 444 222, -1 1 444 222, 0 2 444 222))";
+  mExpectedWkts[QStringLiteral( "XYZM" "2PointsWithDeletedVertex" )] = "CompoundCurveZM (CircularStringZM (0 2 444 222, 1 1 444 222, 0 0 444 222, -1 1 444 222, 0 2 444 222))";
+  mExpectedWkts[QStringLiteral( "XYZM" "3Points" )] = "CompoundCurveZM (CircularStringZM (0 2 444 222, 1 1 444 222, 0 0 444 222, -1 1 444 222, 0 2 444 222))";
+  mExpectedWkts[QStringLiteral( "XYZM" "3PointsWithDeletedVertex" )] = "CompoundCurveZM (CircularStringZM (0 2 444 222, 1 1 444 222, 0 0 444 222, -1 1 444 222, 0 2 444 222))";
+  mExpectedWkts[QStringLiteral( "XYZM" "centerPoint" )] = "CompoundCurveZM (CircularStringZM (0 2 444 222, 2 0 444 222, 0 -2 444 222, -2 0 444 222, 0 2 444 222))";
+  mExpectedWkts[QStringLiteral( "XYZM" "centerPointWithDeletedVertex" )] = "CompoundCurveZM (CircularStringZM (0 2 444 222, 2 0 444 222, 0 -2 444 222, -2 0 444 222, 0 2 444 222))";
 }
 
 void TestQgsMapToolCircle::cleanupTestCase()
