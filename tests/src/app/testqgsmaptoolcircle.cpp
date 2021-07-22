@@ -48,7 +48,7 @@ class TestQgsMapToolCircle : public QObject
     QgisApp *mQgisApp = nullptr;
     QgsMapToolCapture *mParentTool = nullptr;
     QgsMapCanvas *mCanvas = nullptr;
-    QMap<QString, QgsVectorLayer *> mVectorLayerMap = {};
+    std::map<QString, std::unique_ptr<QgsVectorLayer>> mVectorLayerMap = {};
 
 
     const QList<QString> mCoordinateList =
@@ -91,21 +91,22 @@ void TestQgsMapToolCircle::initTestCase()
 
   // make testing layers
   QList<QgsMapLayer *> layerList;
-  mVectorLayerMap["XY"] = new QgsVectorLayer( QStringLiteral( "LineString?crs=EPSG:27700" ), QStringLiteral( "layer line " ), QStringLiteral( "memory" ) );
+
+  mVectorLayerMap["XY"] = std::make_unique<QgsVectorLayer>( QStringLiteral( "LineString?crs=EPSG:27700" ), QStringLiteral( "layer line " ), QStringLiteral( "memory" ) );
   QVERIFY( mVectorLayerMap["XY"]->isValid() );
-  layerList << mVectorLayerMap["XY"];
+  layerList << mVectorLayerMap["XY"].get();
 
-  mVectorLayerMap["XYZ"] = new QgsVectorLayer( QStringLiteral( "LineStringZ?crs=EPSG:27700" ), QStringLiteral( "layer line Z" ), QStringLiteral( "memory" ) );
+  mVectorLayerMap["XYZ"] = std::make_unique<QgsVectorLayer>( QStringLiteral( "LineStringZ?crs=EPSG:27700" ), QStringLiteral( "layer line Z" ), QStringLiteral( "memory" ) );
   QVERIFY( mVectorLayerMap["XYZ"]->isValid() );
-  layerList << mVectorLayerMap["XYZ"];
+  layerList << mVectorLayerMap["XYZ"].get();
 
-  mVectorLayerMap["XYM"] = new QgsVectorLayer( QStringLiteral( "LineStringM?crs=EPSG:27700" ), QStringLiteral( "layer line M" ), QStringLiteral( "memory" ) );
+  mVectorLayerMap["XYM"] = std::make_unique<QgsVectorLayer>( QStringLiteral( "LineStringM?crs=EPSG:27700" ), QStringLiteral( "layer line M" ), QStringLiteral( "memory" ) );
   QVERIFY( mVectorLayerMap["XYM"]->isValid() );
-  layerList << mVectorLayerMap["XYM"];
+  layerList << mVectorLayerMap["XYM"].get();
 
-  mVectorLayerMap["XYZM"] = new QgsVectorLayer( QStringLiteral( "LineStringZM?crs=EPSG:27700" ), QStringLiteral( "layer line ZM" ), QStringLiteral( "memory" ) );
+  mVectorLayerMap["XYZM"] = std::make_unique<QgsVectorLayer>( QStringLiteral( "LineStringZM?crs=EPSG:27700" ), QStringLiteral( "layer line ZM" ), QStringLiteral( "memory" ) );
   QVERIFY( mVectorLayerMap["XYZM"]->isValid() );
-  layerList << mVectorLayerMap["XYZM"];
+  layerList << mVectorLayerMap["XYZM"].get();
 
   // add and set layers in canvas
   QgsProject::instance()->addMapLayers( layerList );
@@ -279,7 +280,7 @@ void TestQgsMapToolCircle::testCircle_data()
   while ( coordinateIter.hasNext() )
   {
     coordinate = coordinateIter.next();
-    mLayer = mVectorLayerMap[coordinate];
+    mLayer = mVectorLayerMap[coordinate].get();
 
     mCanvas->setCurrentLayer( mLayer );
 
