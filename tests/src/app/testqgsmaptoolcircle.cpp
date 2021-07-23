@@ -50,7 +50,6 @@ class TestQgsMapToolCircle : public QObject
     QgsMapCanvas *mCanvas = nullptr;
     std::map<QString, std::unique_ptr<QgsVectorLayer>> mVectorLayerMap = {};
 
-
     const QList<QString> mCoordinateList =
     {
       "XY", "XYZ", "XYM", "XYZM"
@@ -65,7 +64,6 @@ class TestQgsMapToolCircle : public QObject
     QMap<QString, std::function<QgsFeatureId( void )>> mDrawFunctionPtrMap = {};
     QMap<QString, QString> mExpectedWkts = {};
 
-
     void initAttributs();
 
     QgsFeatureId drawCircleFrom2Points();
@@ -78,6 +76,7 @@ class TestQgsMapToolCircle : public QObject
 
 TestQgsMapToolCircle::TestQgsMapToolCircle() = default;
 
+
 //runs before all tests
 void TestQgsMapToolCircle::initTestCase()
 {
@@ -85,7 +84,6 @@ void TestQgsMapToolCircle::initTestCase()
   QgsApplication::initQgis();
 
   mQgisApp = new QgisApp();
-
   mCanvas = new QgsMapCanvas();
   mCanvas->setDestinationCrs( QgsCoordinateReferenceSystem( QStringLiteral( "EPSG:27700" ) ) );
 
@@ -290,6 +288,9 @@ void TestQgsMapToolCircle::testCircle_data()
       mLayer->rollBack();
     }
   }
+
+  QgsSettingsRegistryCore::settingsDigitizingDefaultZValue.setValue( 0 );
+  QgsSettingsRegistryCore::settingsDigitizingDefaultMValue.setValue( 0 );
 }
 
 void TestQgsMapToolCircle::testCircle()
