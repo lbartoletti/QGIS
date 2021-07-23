@@ -270,24 +270,15 @@ void TestQgsMapToolCircle::testCircle_data()
   QString wkt;
   QgsVectorLayer *mLayer;
 
-  QString coordinate;
-  QString drawMethod;
   QString rowStringName;
 
-  QListIterator<QString> coordinateIter( mCoordinateList );
-  QListIterator<QString> drawCircleIter( mDrawingCircleMethods );
-
-  while ( coordinateIter.hasNext() )
+  for ( QString coordinate : mCoordinateList )
   {
-    coordinate = coordinateIter.next();
     mLayer = mVectorLayerMap[coordinate].get();
-
     mCanvas->setCurrentLayer( mLayer );
 
-    while ( drawCircleIter.hasNext() )
+    for ( QString drawMethod : mDrawingCircleMethods )
     {
-      drawMethod = drawCircleIter.next();
-
       mLayer->startEditing();
       newFid = mDrawFunctionPtrMap[drawMethod]();
       f = mLayer->getFeature( newFid );
@@ -298,7 +289,6 @@ void TestQgsMapToolCircle::testCircle_data()
 
       mLayer->rollBack();
     }
-    drawCircleIter.toFront();
   }
 }
 
