@@ -2391,7 +2391,7 @@ void QgsMapToolEditMeshFrame::addVertex(
 
   if ( mapPointMatch.isValid() )
   {
-    QgsPoint layerPoint = mapPointMatch.interpolatedPoint();
+    QgsPoint layerPoint = mapPointMatch.interpolatedPoint( QgsProject::instance()->crs(), mCurrentLayer );
     zValue = layerPoint.z();
   }
   else if ( mIsSelectedZValue )
