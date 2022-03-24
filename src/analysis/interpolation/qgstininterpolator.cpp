@@ -145,14 +145,14 @@ void QgsTinInterpolator::initialize()
 
   if ( mInterpolation == CloughTocher )
   {
-    CloughTocherInterpolator *ctInterpolator = new CloughTocherInterpolator();
     NormVecDecorator *dec = dynamic_cast<NormVecDecorator *>( mTriangulation );
     if ( dec )
     {
+      std::unique_ptr<CloughTocherInterpolator> ctInterpolator{new CloughTocherInterpolator()};
       dec->estimateFirstDerivatives( mFeedback );
       ctInterpolator->setTriangulation( dec );
-      dec->setTriangleInterpolator( ctInterpolator );
-      mTriangleInterpolator = ctInterpolator;
+      dec->setTriangleInterpolator( ctInterpolator.get() );
+      mTriangleInterpolator = ctInterpolator.release();
     }
   }
   else //linear
