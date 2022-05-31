@@ -86,7 +86,6 @@ class CORE_EXPORT QgsGeometryFactory
      */
     static std::unique_ptr< QgsGeometryCollection > createCollectionOfType( QgsWkbTypes::Type type );
 
-  private:
     static std::unique_ptr< QgsLineString > linestringFromPolyline( const QgsPolylineXY &polyline );
 };
 

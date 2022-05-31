@@ -16,8 +16,10 @@
 #include "qgstracer.h"
 
 
+#include "geometry/qgslinestring.h"
 #include "qgsfeatureiterator.h"
 #include "qgsgeometry.h"
+#include "qgsgeometryfactory.h"
 #include "qgsgeometryutils.h"
 #include "qgsgeos.h"
 #include "qgslogger.h"
@@ -65,27 +67,14 @@ double distance2D( const QgsPolylineXY &coords )
 }
 
 
-// TODO: move to geometry utils
 double closestSegment( const QgsPolylineXY &pl, const QgsPointXY &pt, int &vertexAfter, double epsilon )
 {
-  double sqrDist = std::numeric_limits<double>::max();
-  const QgsPointXY *pldata = pl.constData();
-  int plcount = pl.count();
-  double prevX = pldata[0].x(), prevY = pldata[0].y();
-  double segmentPtX, segmentPtY;
-  for ( int i = 1; i < plcount; ++i )
-  {
-    double currentX = pldata[i].x();
-    double currentY = pldata[i].y();
-    double testDist = QgsGeometryUtils::sqrDistToLine( pt.x(), pt.y(), prevX, prevY, currentX, currentY, segmentPtX, segmentPtY, epsilon );
-    if ( testDist < sqrDist )
-    {
-      sqrDist = testDist;
-      vertexAfter = i;
-    }
-    prevX = currentX;
-    prevY = currentY;
-  }
+  const auto l {QgsGeometryFactory::linestringFromPolyline( pl )};
+  QgsPoint segmentPt;
+  QgsVertexId vertexId;
+  double sqrDist = l->closestSegment( QgsPoint( pt.x(), pt.y() ), segmentPt, vertexId, nullptr, epsilon );
+  vertexAfter = vertexId.vertex;
+
   return sqrDist;
 }
 
