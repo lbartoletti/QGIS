@@ -148,10 +148,12 @@ class CORE_EXPORT QgsTracer : public QObject
      * The optional "error" argument may receive error code (PathError enum) if it is not NULLPTR
      * \returns array of points - trace of linestrings of other features (empty array one error)
      */
-    QVector<QgsPointXY> findShortestPath( const QgsPointXY &p1, const QgsPointXY &p2, PathError *error SIP_OUT = nullptr );
+//    QVector<QgsPointXY> findShortestPath( const QgsPointXY &p1, const QgsPointXY &p2, PathError *error SIP_OUT = nullptr );
+    QgsLineString findShortestPath( const QgsPoint &p1, const QgsPoint &p2, PathError *error SIP_OUT = nullptr );
 
     //! Find out whether the point is snapped to a vertex or edge (i.e. it can be used for tracing start/stop)
-    bool isPointSnapped( const QgsPointXY &pt );
+//   bool isPointSnapped( const QgsPointXY &pt );
+    bool isPointSnapped( const QgsPoint &pt );
 
   protected:
 

@@ -37,6 +37,7 @@ class CORE_EXPORT QgsMultiLineString: public QgsMultiCurve
      */
     QgsMultiLineString() SIP_HOLDGIL;
 
+    QgsMultiLineString( const QgsAbstractGeometry *geom ) SIP_HOLDGIL;
 
 #ifndef SIP_RUN
 

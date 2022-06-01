@@ -16,7 +16,13 @@
 #include "qgstracer.h"
 
 
+#include "geometry/qgsabstractgeometry.h"
+#include "geometry/qgscurve.h"
+#include "geometry/qgsmultilinestring.h"
+#include "geometry/qgsmultipolygon.h"
 #include "geometry/qgslinestring.h"
+#include "geometry/qgspolygon.h"
+#include "geometry/qgswkbtypes.h"
 #include "qgsfeatureiterator.h"
 #include "qgsgeometry.h"
 #include "qgsgeometryfactory.h"
@@ -45,41 +51,6 @@ struct comp
 };
 
 
-// TODO: move to geometry utils
-double distance2D( const QgsPolylineXY &coords )
-{
-  int np = coords.count();
-  if ( np == 0 )
-    return 0;
-
-  double x0 = coords[0].x(), y0 = coords[0].y();
-  double x1, y1;
-  double dist = 0;
-  for ( int i = 1; i < np; ++i )
-  {
-    x1 = coords[i].x();
-    y1 = coords[i].y();
-    dist += std::sqrt( ( x1 - x0 ) * ( x1 - x0 ) + ( y1 - y0 ) * ( y1 - y0 ) );
-    x0 = x1;
-    y0 = y1;
-  }
-  return dist;
-}
-
-
-double closestSegment( const QgsPolylineXY &pl, const QgsPointXY &pt, int &vertexAfter, double epsilon )
-{
-  const auto l {QgsGeometryFactory::linestringFromPolyline( pl )};
-  QgsPoint segmentPt;
-  QgsVertexId vertexId;
-  double sqrDist = l->closestSegment( QgsPoint( pt.x(), pt.y() ), segmentPt, vertexId, nullptr, epsilon );
-  vertexAfter = vertexId.vertex;
-
-  return sqrDist;
-}
-
-/////
-
 //! Simple graph structure for shortest path search
 struct QgsTracerGraph
 {
@@ -90,16 +61,16 @@ struct QgsTracerGraph
     //! vertices that the edge connects
     int v1, v2;
     //! coordinates of the edge (including endpoints)
-    QVector<QgsPointXY> coords;
+    QgsLineString coords;
 
     int otherVertex( int v0 ) const { return v1 == v0 ? v2 : v1; }
-    double weight() const { return distance2D( coords ); }
+    double weight() const { return coords.length(); }
   };
 
   struct V
   {
     //! location of the vertex
-    QgsPointXY pt;
+    QgsPoint pt;
     //! indices of adjacent edges (used in Dijkstra algorithm)
     QVector<int> edges;
   };
@@ -116,17 +87,18 @@ struct QgsTracerGraph
 };
 
 
-QgsTracerGraph *makeGraph( const QVector<QgsPolylineXY> &edges )
+QgsTracerGraph *makeGraph( const QgsMultiLineString &edges )
 {
   QgsTracerGraph *g = new QgsTracerGraph();
   g->joinedVertices = 0;
-  QHash<QgsPointXY, int> point2vertex;
+  QHash<QgsPoint, int> point2vertex;
 
-  const auto constEdges = edges;
-  for ( const QgsPolylineXY &line : constEdges )
+  for ( int i = 0; i < edges.numGeometries(); ++i )
   {
-    QgsPointXY p1( line[0] );
-    QgsPointXY p2( line[line.count() - 1] );
+    const auto line = edges.lineStringN( i );
+    qDebug() << "line " << line->asWkt( 0 ) << "\n";
+    QgsPoint p1( line->startPoint() );
+    QgsPoint p2( line->endPoint() );
 
     int v1 = -1, v2 = -1;
     // get or add vertex 1
@@ -157,7 +129,11 @@ QgsTracerGraph *makeGraph( const QVector<QgsPolylineXY> &edges )
     QgsTracerGraph::E e;
     e.v1 = v1;
     e.v2 = v2;
-    e.coords = line;
+    e.coords.clear();
+    for ( int i = 0; i < line->numPoints(); ++i )
+    {
+      e.coords.addVertex( line->pointN( i ) );
+    }
     g->e.append( e );
 
     // link edge to vertices
@@ -170,10 +146,10 @@ QgsTracerGraph *makeGraph( const QVector<QgsPolylineXY> &edges )
 }
 
 
-QVector<QgsPointXY> shortestPath( const QgsTracerGraph &g, int v1, int v2 )
+QgsLineString shortestPath( const QgsTracerGraph &g, int v1, int v2 )
 {
   if ( v1 == -1 || v2 == -1 )
-    return QVector<QgsPointXY>(); // invalid input
+    return QgsLineString(); // invalid input
 
   // priority queue to drive Dijkstra:
   // first of the pair is vertex index, second is distance
@@ -223,32 +199,35 @@ QVector<QgsPointXY> shortestPath( const QgsTracerGraph &g, int v1, int v2 )
   }
 
   if ( u != v2 ) // there's no path to the end vertex
-    return QVector<QgsPointXY>();
+    return QgsLineString();
 
   //qDebug("dist %f", D[u]);
 
-  QVector<QgsPointXY> points;
+  QgsLineString points;
   QList<int> path;
   while ( S[u] != -1 )
   {
     path << S[u];
     const QgsTracerGraph::E &e = g.e[S[u]];
-    QVector<QgsPointXY> edgePoints = e.coords;
-    if ( edgePoints[0] != g.v[u].pt )
-      std::reverse( edgePoints.begin(), edgePoints.end() );
+    QgsLineString edgePoints = e.coords;
+    if ( edgePoints.startPoint() != g.v[u].pt )
+    {
+      edgePoints.reverse();
+    }
     if ( !points.isEmpty() )
-      points.remove( points.count() - 1 );  // chop last one (will be used from next edge)
-    points << edgePoints;
+      points.deleteVertex( QgsVertexId( 0, 0, points.numPoints() ) ); // chop last one (will be used from next edge)
+    points.append( &edgePoints );
     u = e.otherVertex( u );
   }
 
   std::reverse( path.begin(), path.end() );
-  std::reverse( points.begin(), points.end() );
+  points.reverse();
+  qDebug() << "shortestPath:" << points.asWkt( 0 ) << "\n";
   return points;
 }
 
 
-int point2vertex( const QgsTracerGraph &g, const QgsPointXY &pt, double epsilon = 1e-6 )
+int point2vertex( const QgsTracerGraph &g, const QgsPoint &pt, double epsilon = 1e-6 )
 {
   // TODO: use spatial index
 
@@ -263,7 +242,7 @@ int point2vertex( const QgsTracerGraph &g, const QgsPointXY &pt, double epsilon 
 }
 
 
-int point2edge( const QgsTracerGraph &g, const QgsPointXY &pt, int &lineVertexAfter, double epsilon = 1e-6 )
+int point2edge( const QgsTracerGraph &g, const QgsPoint &pt, int &lineVertexAfter, double epsilon = 1e-6 )
 {
   for ( int i = 0; i < g.e.count(); ++i )
   {
@@ -271,11 +250,12 @@ int point2edge( const QgsTracerGraph &g, const QgsPointXY &pt, int &lineVertexAf
       continue;  // ignore temporarily disabled edges
 
     const QgsTracerGraph::E &e = g.e.at( i );
-    int vertexAfter = -1;
-    double dist = closestSegment( e.coords, pt, vertexAfter, epsilon );
+    QgsVertexId vertexId;
+    QgsPoint segmentPt;
+    double dist = e.coords.closestSegment( pt, segmentPt, vertexId, nullptr, epsilon );
     if ( dist == 0 )
     {
-      lineVertexAfter = vertexAfter;
+      lineVertexAfter = vertexId.vertex;
       return i;
     }
   }
@@ -283,25 +263,9 @@ int point2edge( const QgsTracerGraph &g, const QgsPointXY &pt, int &lineVertexAf
 }
 
 
-void splitLinestring( const QgsPolylineXY &points, const QgsPointXY &pt, int lineVertexAfter, QgsPolylineXY &pts1, QgsPolylineXY &pts2 )
+int joinVertexToGraph( QgsTracerGraph &g, const QgsPoint &pt )
 {
-  int count1 = lineVertexAfter;
-  int count2 = points.count() - lineVertexAfter;
-
-  for ( int i = 0; i < count1; ++i )
-    pts1 << points[i];
-  if ( points[lineVertexAfter - 1] != pt )
-    pts1 << pt;  // repeat if not split exactly at that point
-
-  if ( pt != points[lineVertexAfter] )
-    pts2 << pt;  // repeat if not split exactly at that point
-  for ( int i = 0; i < count2; ++i )
-    pts2 << points[i + lineVertexAfter];
-}
-
-
-int joinVertexToGraph( QgsTracerGraph &g, const QgsPointXY &pt )
-{
+  qDebug() << "ici\n";
   // find edge where the point is
   int lineVertexAfter;
   int eIdx = point2edge( g, pt, lineVertexAfter );
@@ -315,8 +279,11 @@ int joinVertexToGraph( QgsTracerGraph &g, const QgsPointXY &pt )
   QgsTracerGraph::V &v1 = g.v[e.v1];
   QgsTracerGraph::V &v2 = g.v[e.v2];
 
-  QgsPolylineXY out1, out2;
-  splitLinestring( e.coords, pt, lineVertexAfter, out1, out2 );
+  QgsLineString out1, out2;
+  qDebug() << "coords: " << e.coords.asWkt( 0 ) << "\n";
+  e.coords.splitAt( pt, QgsVertexId( 0, 0, lineVertexAfter ), out1, out2 );
+  qDebug() << "out1: " << out1.asWkt( 0 ) << "\n";
+  qDebug() << "out2: " << out2.asWkt( 0 ) << "\n";
 
   int vIdx = g.v.count();
   int e1Idx = g.e.count();
@@ -353,7 +320,7 @@ int joinVertexToGraph( QgsTracerGraph &g, const QgsPointXY &pt )
 }
 
 
-int pointInGraph( QgsTracerGraph &g, const QgsPointXY &pt )
+int pointInGraph( QgsTracerGraph &g, const QgsPoint &pt )
 {
   // try to use existing vertex in the graph
   int v = point2vertex( g, pt );
@@ -399,56 +366,16 @@ void resetGraph( QgsTracerGraph &g )
 }
 
 
-void extractLinework( const QgsGeometry &g, QgsMultiPolylineXY &mpl )
+void extractLinework( const QgsGeometry &g, QgsMultiLineString &mpl )
 {
-  QgsGeometry geom = g;
-  // segmentize curved geometries - we will use noding algorithm from GEOS
-  // to find all intersections a bit later (so we need them segmentized anyway)
-  if ( QgsWkbTypes::isCurvedType( g.wkbType() ) )
-  {
-    QgsAbstractGeometry *segmentizedGeomV2 = g.constGet()->segmentize();
-    if ( !segmentizedGeomV2 )
-      return;
+  QgsAbstractGeometry *segmentizedGeomV2 = g.constGet()->segmentize();
+  if ( !segmentizedGeomV2 )
+    return;
 
-    geom = QgsGeometry( segmentizedGeomV2 );
-  }
+  const QgsMultiLineString multilinestring{segmentizedGeomV2};
+  for ( int i = 0; i < multilinestring.numGeometries(); ++i )
+    mpl.addGeometry( multilinestring.geometryN( i )->clone() );
 
-  switch ( QgsWkbTypes::flatType( geom.wkbType() ) )
-  {
-    case QgsWkbTypes::LineString:
-      mpl << geom.asPolyline();
-      break;
-
-    case QgsWkbTypes::Polygon:
-    {
-      const auto polygon = geom.asPolygon();
-      for ( const QgsPolylineXY &ring : polygon )
-        mpl << ring;
-    }
-    break;
-
-    case QgsWkbTypes::MultiLineString:
-    {
-      const auto multiPolyline = geom.asMultiPolyline();
-      for ( const QgsPolylineXY &linestring : multiPolyline )
-        mpl << linestring;
-    }
-    break;
-
-    case QgsWkbTypes::MultiPolygon:
-    {
-      const auto multiPolygon = geom.asMultiPolygon();
-      for ( const QgsPolygonXY &polygon : multiPolygon )
-      {
-        for ( const QgsPolylineXY &ring : polygon )
-          mpl << ring;
-      }
-    }
-    break;
-
-    default:
-      break;  // unknown type - do nothing
-  }
 }
 
 // -------------
@@ -464,7 +391,7 @@ bool QgsTracer::initGraph()
   mHasTopologyProblem = false;
 
   QgsFeature f;
-  QgsMultiPolylineXY mpl;
+  QgsMultiLineString mpl;
 
   // extract linestrings
 
@@ -517,7 +444,9 @@ bool QgsTracer::initGraph()
         }
       }
 
+      qDebug() << f.geometry().asWkt( 0 ) << "\n";
       extractLinework( f.geometry(), mpl );
+      qDebug() << mpl.asWkt( 0 ) << "\n";
 
       ++featuresCounted;
       if ( mMaxFeatureCount != 0 && featuresCounted >= mMaxFeatureCount )
@@ -535,12 +464,13 @@ bool QgsTracer::initGraph()
 
   t2.start();
 
-  int timeNodingCall = 0;
+#if 0
 
 #if 0
   // without noding - if data are known to be noded beforehand
 #else
-  QgsGeometry allGeom = QgsGeometry::fromMultiPolylineXY( mpl );
+  QgsGeometry allGeom( mpl.clone() );
+  qDebug() << "allGeom : " << allGeom.asWkt( 0 ) << "\n";
 
   try
   {
@@ -552,7 +482,8 @@ bool QgsTracer::initGraph()
 
     QgsGeometry noded = QgsGeos::geometryFromGeos( allNoded.release() );
 
-    mpl = noded.asMultiPolyline();
+    mpl = QgsMultiLineString( noded.constGet() );
+    qDebug() << "mpl : " << mpl.asWkt( 0 ) << "\n";
   }
   catch ( GEOSException &e )
   {
@@ -565,6 +496,9 @@ bool QgsTracer::initGraph()
   }
 #endif
 
+#endif // why?
+  int timeNodingCall = 0;
+  timeNodingCall = t2a.elapsed();
   int timeNoding = t2.elapsed();
 
   t3.start();
@@ -722,13 +656,14 @@ void QgsTracer::onLayerDestroyed( QObject *obj )
   invalidateGraph();
 }
 
-QVector<QgsPointXY> QgsTracer::findShortestPath( const QgsPointXY &p1, const QgsPointXY &p2, PathError *error )
+QgsLineString QgsTracer::findShortestPath( const QgsPoint &p1, const QgsPoint &p2, PathError *error )
 {
   init();  // does nothing if the graph exists already
   if ( !mGraph )
   {
     if ( error ) *error = ErrTooManyFeatures;
-    return QVector<QgsPointXY>();
+    qDebug() << "prout\n";
+    return QgsLineString();
   }
 
   QElapsedTimer t;
@@ -740,17 +675,19 @@ QVector<QgsPointXY> QgsTracer::findShortestPath( const QgsPointXY &p1, const Qgs
   if ( v1 == -1 )
   {
     if ( error ) *error = ErrPoint1;
-    return QVector<QgsPointXY>();
+    qDebug() << "prout v1\n";
+    return QgsLineString();
   }
   if ( v2 == -1 )
   {
     if ( error ) *error = ErrPoint2;
-    return QVector<QgsPointXY>();
+    qDebug() << "prout v2\n";
+    return QgsLineString();
   }
 
   QElapsedTimer t2;
   t2.start();
-  QgsPolylineXY points = shortestPath( *mGraph, v1, v2 );
+  QgsLineString points = shortestPath( *mGraph, v1, v2 );
   int tPath = t2.elapsed();
 
   Q_UNUSED( tPrep )
@@ -761,7 +698,7 @@ QVector<QgsPointXY> QgsTracer::findShortestPath( const QgsPointXY &p1, const Qgs
 
   if ( !points.isEmpty() && mOffset != 0 )
   {
-    QVector<QgsPointXY> pointsInput( points );
+    QgsLineString pointsInput( points );
     QgsLineString linestring( pointsInput );
     std::unique_ptr<QgsGeometryEngine> linestringEngine( QgsGeometry::createGeometryEngine( &linestring ) );
     std::unique_ptr<QgsAbstractGeometry> linestringOffset( linestringEngine->offsetCurve( mOffset, mOffsetSegments, mOffsetJoinStyle, mOffsetMiterLimit ) );
@@ -769,16 +706,18 @@ QVector<QgsPointXY> QgsTracer::findShortestPath( const QgsPointXY &p1, const Qgs
     {
       points.clear();
       for ( int i = 0; i < ls2->numPoints(); ++i )
-        points << QgsPointXY( ls2->pointN( i ) );
+        points.addVertex( ls2->pointN( i ) );
 
       // sometimes (with negative offset?) the resulting curve is reversed
-      if ( points.count() >= 2 )
+      if ( points.numPoints() >= 2 )
       {
-        QgsPointXY res1 = points.first(), res2 = points.last();
+        QgsPoint res1 = points.startPoint(), res2 = points.endPoint();
         double diffNormal = res1.distance( p1 ) + res2.distance( p2 );
         double diffReversed = res1.distance( p2 ) + res2.distance( p1 );
         if ( diffReversed < diffNormal )
-          std::reverse( points.begin(), points.end() );
+        {
+          points.reverse();
+        }
       }
     }
   }
@@ -789,7 +728,7 @@ QVector<QgsPointXY> QgsTracer::findShortestPath( const QgsPointXY &p1, const Qgs
   return points;
 }
 
-bool QgsTracer::isPointSnapped( const QgsPointXY &pt )
+bool QgsTracer::isPointSnapped( const QgsPoint &pt )
 {
   init();  // does nothing if the graph exists already
   if ( !mGraph )

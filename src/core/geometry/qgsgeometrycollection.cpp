@@ -247,7 +247,7 @@ bool QgsGeometryCollection::isEmpty() const
 
   for ( QgsAbstractGeometry *geometry : mGeometries )
   {
-    if ( !geometry->isEmpty() )
+    if ( !geometry && !geometry->isEmpty() )
       return false;
   }
   return true;

@@ -185,11 +185,11 @@ bool QgsMapToolCapture::tracingEnabled()
 }
 
 
-QgsPointXY QgsMapToolCapture::tracingStartPoint()
+QgsPoint QgsMapToolCapture::tracingStartPoint()
 {
   // if we have starting point from previous trace, then preferably use that one
   // (useful when tracing with offset)
-  if ( mTracingStartPoint != QgsPointXY() )
+  if ( mTracingStartPoint != QgsPoint() )
     return mTracingStartPoint;
 
   return mCaptureLastPoint;
@@ -201,8 +201,8 @@ bool QgsMapToolCapture::tracingMouseMove( QgsMapMouseEvent *e )
   if ( !e->isSnapped() )
     return false;
 
-  QgsPointXY pt0 = tracingStartPoint();
-  if ( pt0 == QgsPointXY() )
+  QgsPoint pt0 = tracingStartPoint();
+  if ( pt0 == QgsPoint() )
     return false;
 
   QgsMapCanvasTracer *tracer = QgsMapCanvasTracer::tracerForCanvas( mCanvas );
@@ -210,7 +210,7 @@ bool QgsMapToolCapture::tracingMouseMove( QgsMapMouseEvent *e )
     return false;  // this should not happen!
 
   QgsTracer::PathError err;
-  QVector<QgsPointXY> points = tracer->findShortestPath( pt0, e->mapPoint(), &err );
+  QgsLineString points = tracer->findShortestPath( pt0, QgsPoint( e->mapPoint() ), &err );
   if ( points.isEmpty() )
   {
     tracer->reportError( err, false );
@@ -225,35 +225,34 @@ bool QgsMapToolCapture::tracingMouseMove( QgsMapMouseEvent *e )
   // 1. the last point of mRubberBand may need to be moved off the traced curve to respect the offset
   // 2. first point of mTempRubberBand may be needed to be moved to the beginning of the offset trace
   const QgsPoint lastPoint = mCaptureLastPoint;
-  QgsPointXY lastPointXY( lastPoint );
-  if ( lastPointXY == pt0 && points[0] != lastPointXY )
+  if ( lastPoint == pt0 && points.pointN( 0 ) != lastPoint )
   {
     if ( mRubberBand->numberOfVertices() != 0 )
     {
       // if rubber band had just one point, for some strange reason it contains the point twice
       // we only want to move the last point if there are multiple points already
       if ( mRubberBand->numberOfVertices() > 2 || ( mRubberBand->numberOfVertices() == 2 && *mRubberBand->getPoint( 0, 0 ) != *mRubberBand->getPoint( 0, 1 ) ) )
-        mRubberBand->movePoint( points[0] );
+        mRubberBand->movePoint( points.pointN( 0 ) );
     }
 
-    mTempRubberBand->movePoint( 0, QgsPoint( points[0] ) );
+    mTempRubberBand->movePoint( 0, QgsPoint( points.pointN( 0 ) ) );
   }
 
-  mTempRubberBand->movePoint( QgsPoint( points[0] ) );
+  mTempRubberBand->movePoint( QgsPoint( points.pointN( 0 ) ) );
 
   //  update temporary rubberband
-  for ( int i = 1; i < points.count(); ++i ) //points added in the rubber band are 2D but will not be added to the capture curve
-    mTempRubberBand->addPoint( QgsPoint( points.at( i ) ), i == points.count() - 1 );
+  for ( int i = 1; i < points.numPoints(); ++i ) //points added in the rubber band are 2D but will not be added to the capture curve
+    mTempRubberBand->addPoint( QgsPoint( points.pointN( i ) ), i == points.numPoints() - 1 );
 
 
-  mTempRubberBand->addPoint( QgsPoint( points[points.size() - 1] ) );
+  mTempRubberBand->addPoint( QgsPoint( points.pointN( points.numPoints() - 1 ) ) );
 
   tracer->reportError( QgsTracer::ErrNone, false ); // clear messagebar if there was any error
   return true;
 }
 
 
-bool QgsMapToolCapture::tracingAddVertex( const QgsPointXY &point )
+bool QgsMapToolCapture::tracingAddVertex( const QgsPoint &point )
 {
   QgsMapCanvasTracer *tracer = QgsMapCanvasTracer::tracerForCanvas( mCanvas );
   if ( !tracer )
@@ -276,21 +275,21 @@ bool QgsMapToolCapture::tracingAddVertex( const QgsPointXY &point )
     return false;
   }
 
-  QgsPointXY pt0 = tracingStartPoint();
-  if ( pt0 == QgsPointXY() )
+  QgsPoint pt0 = tracingStartPoint();
+  if ( pt0 == QgsPoint() )
     return false;
 
   QgsTracer::PathError err;
-  QVector<QgsPointXY> points = tracer->findShortestPath( pt0, point, &err );
+  QgsLineString points = tracer->findShortestPath( pt0, point, &err );
   if ( points.isEmpty() )
     return false; // ignore the vertex - can't find path to the end point!
 
   // transform points
   QgsPointSequence layerPoints;
   QgsPoint lp; // in layer coords
-  for ( int i = 0; i < points.count(); ++i )
+  for ( int i = 0; i < points.numPoints(); ++i )
   {
-    if ( nextPoint( QgsPoint( points[i] ), lp ) != 0 )
+    if ( nextPoint( QgsPoint( points.pointN( i ) ), lp ) != 0 )
       return false;
     layerPoints << lp;
   }
@@ -725,7 +724,7 @@ int QgsMapToolCapture::addVertex( const QgsPointXY &point, const QgsPointLocator
 
     // keep new tracing start point if we created a trace. This is useful when tracing with
     // offset so that the user stays "snapped"
-    mTracingStartPoint = traceCreated ? point : QgsPointXY();
+    mTracingStartPoint = traceCreated ? QgsPoint( point ) : QgsPoint();
 
     if ( !traceCreated )
     {
@@ -843,7 +842,7 @@ QList<QgsPointLocator::Match> QgsMapToolCapture::snappingMatches() const
 
 void QgsMapToolCapture::undo( bool isAutoRepeat )
 {
-  mTracingStartPoint = QgsPointXY();
+  mTracingStartPoint = QgsPoint();
 
   if ( mTempRubberBand )
   {
@@ -982,7 +981,7 @@ void QgsMapToolCapture::stopCapturing()
   mCaptureFirstPoint = QgsPoint();
   mCaptureLastPoint = QgsPoint();
 
-  mTracingStartPoint = QgsPointXY();
+  mTracingStartPoint = QgsPoint();
 
   mCapturing = false;
   mCaptureCurve.clear();

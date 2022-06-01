@@ -27,6 +27,7 @@ Multi line string geometry collection.
 Constructor for an empty multilinestring geometry.
 %End
 
+    QgsMultiLineString( const QgsAbstractGeometry *geom ) /HoldGIL/;
 
 
     SIP_PYOBJECT lineStringN( int index ) /TypeHint="QgsLineString"/;

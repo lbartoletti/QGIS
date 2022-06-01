@@ -1280,6 +1280,14 @@ void QgsLineString::append( const QgsLineString *line )
   clearCache(); //set bounding box invalid
 }
 
+void QgsLineString::reverse()
+{
+  std::reverse( mX.begin(), mX.end() );
+  std::reverse( mY.begin(), mY.end() );
+  std::reverse( mZ.begin(), mZ.end() );
+  std::reverse( mM.begin(), mM.end() );
+}
+
 QgsLineString *QgsLineString::reversed() const
 {
   QgsLineString *copy = clone();
@@ -1295,6 +1303,32 @@ QgsLineString *QgsLineString::reversed() const
   }
   return copy;
 }
+
+void QgsLineString::splitAt( const QgsPoint &pt, QgsVertexId vertexAfter, QgsLineString &pts1, QgsLineString &pts2 ) const
+{
+  pts1.clear();
+  pts2.clear();
+  int count1 = vertexAfter.vertex;
+  int count2 = numPoints() - vertexAfter.vertex;
+
+  for ( int i = 0; i < count1; ++i )
+  {
+    pts1.addVertex( pointN( i ) );
+  }
+  if ( pointN( vertexAfter.vertex - 1 ) != pt )
+  {
+    pts1.addVertex( pt ); // repeat if not split exactly at that point
+  }
+  if ( pt != pointN( vertexAfter.vertex ) )
+  {
+    pts2.addVertex( pt ); // repeat if not split exactly at that point
+  }
+  for ( int i = 0; i < count2; ++i )
+  {
+    pts2.addVertex( pointN( i + vertexAfter.vertex ) );
+  }
+}
+
 
 void QgsLineString::visitPointsByRegularDistance( const double distance, const std::function<bool ( double, double, double, double, double, double, double, double, double, double, double, double )> &visitPoint ) const
 {

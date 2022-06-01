@@ -218,6 +218,18 @@ otherwise points are transformed from destination to source CRS.
 :return: transformed point
 %End
 
+    QgsPoint transform( const QgsPoint &point, Qgis::TransformDirection direction = Qgis::TransformDirection::Forward ) const throw( QgsCsException );
+%Docstring
+Transform the point from the source CRS to the destination CRS.
+If the direction is ForwardTransform then coordinates are transformed from source to destination,
+otherwise points are transformed from destination to source CRS.
+
+:param point: point to transform
+:param direction: transform direction (defaults to ForwardTransform)
+
+:return: transformed point
+%End
+
     QgsPointXY transform( double x, double y, Qgis::TransformDirection direction = Qgis::TransformDirection::Forward ) const;
 %Docstring
 Transform the point specified by x,y from the source CRS to the destination CRS.

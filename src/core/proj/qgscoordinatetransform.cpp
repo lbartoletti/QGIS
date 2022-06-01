@@ -233,6 +233,29 @@ QgsPointXY QgsCoordinateTransform::transform( const QgsPointXY &point, Qgis::Tra
   return QgsPointXY( x, y );
 }
 
+QgsPoint QgsCoordinateTransform::transform( const QgsPoint &point, Qgis::TransformDirection direction ) const
+{
+  if ( !d->mIsValid || d->mShortCircuit )
+    return point;
+
+  // transform x
+  double x = point.x();
+  double y = point.y();
+  double z = point.z();
+  try
+  {
+    transformCoords( 1, &x, &y, &z, direction );
+  }
+  catch ( const QgsCsException & )
+  {
+    // rethrow the exception
+    QgsDebugMsgLevel( QStringLiteral( "rethrowing exception" ), 2 );
+    throw;
+  }
+
+  return QgsPoint( x, y, z, point.m() );
+}
+
 
 QgsPointXY QgsCoordinateTransform::transform( const double theX, const double theY = 0.0, Qgis::TransformDirection direction ) const
 {

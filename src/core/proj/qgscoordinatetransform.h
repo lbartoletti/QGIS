@@ -27,6 +27,7 @@
 
 class QgsCoordinateTransformPrivate;
 class QgsPointXY;
+class QgsPoint;
 class QgsRectangle;
 class QPolygonF;
 class QgsProject;
@@ -206,6 +207,16 @@ class CORE_EXPORT QgsCoordinateTransform
      * \returns transformed point
      */
     QgsPointXY transform( const QgsPointXY &point, Qgis::TransformDirection direction = Qgis::TransformDirection::Forward ) const SIP_THROW( QgsCsException );
+
+    /**
+     * Transform the point from the source CRS to the destination CRS.
+     * If the direction is ForwardTransform then coordinates are transformed from source to destination,
+     * otherwise points are transformed from destination to source CRS.
+     * \param point point to transform
+     * \param direction transform direction (defaults to ForwardTransform)
+     * \returns transformed point
+     */
+    QgsPoint transform( const QgsPoint &point, Qgis::TransformDirection direction = Qgis::TransformDirection::Forward ) const SIP_THROW( QgsCsException );
 
     /**
      * Transform the point specified by x,y from the source CRS to the destination CRS.

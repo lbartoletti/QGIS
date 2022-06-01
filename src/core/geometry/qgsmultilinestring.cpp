@@ -20,10 +20,40 @@ email                : marco.hugentobler at sourcepole dot com
 #include "qgscompoundcurve.h"
 #include "qgsgeometryutils.h"
 #include "qgslinestring.h"
+#include "qgspolygon.h"
 #include "qgsmulticurve.h"
+#include "qgswkbtypes.h"
 
 #include <nlohmann/json.hpp>
 #include <QJsonObject>
+
+QgsMultiLineString::QgsMultiLineString( const QgsAbstractGeometry *geom )
+{
+  qDebug() << "multi : " << geom->geometryType() << "\n";
+  switch ( QgsWkbTypes::flatType( geom->wkbType() ) )
+  {
+    case QgsWkbTypes::LineString:
+    {
+      addGeometry( geom->clone() );
+    }
+    break;
+    case QgsWkbTypes::Polygon:
+    {
+      const auto polygon = qgsgeometry_cast<QgsPolygon *>( geom );
+      qDebug() << "wkt polyg:" << polygon->asWkt( 0 ) << "\n";
+      qDebug() << "wkt extR:" << polygon->exteriorRing()->asWkt( 0 ) << "\n";
+      addGeometry( polygon->exteriorRing() );
+      for ( int i = 0; i < polygon->numInteriorRings(); ++i )
+      {
+        addGeometry( polygon->interiorRing( i ) );
+      }
+      qDebug() << "wkt:" << asWkt( 0 ) << "\n";
+    }
+    break;
+    default:
+      break;
+  }
+}
 
 QgsMultiLineString::QgsMultiLineString()
 {

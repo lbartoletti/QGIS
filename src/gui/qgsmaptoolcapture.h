@@ -365,11 +365,11 @@ class GUI_EXPORT QgsMapToolCapture : public QgsMapToolAdvancedDigitizing
     //! whether tracing has been requested by the user
     bool tracingEnabled();
     //! first point that will be used as a start of the trace
-    QgsPointXY tracingStartPoint();
+    QgsPoint tracingStartPoint();
     //! handle of mouse movement when tracing enabled and capturing has started
     bool tracingMouseMove( QgsMapMouseEvent *e );
     //! handle of addition of clicked point (with the rest of the trace) when tracing enabled
-    bool tracingAddVertex( const QgsPointXY &point );
+    bool tracingAddVertex( const QgsPoint &point );
 
     //! create a curve rubber band
     QgsMapToolCaptureRubberBand *createCurveRubberBand() const;
@@ -420,7 +420,7 @@ class GUI_EXPORT QgsMapToolCapture : public QgsMapToolAdvancedDigitizing
      * tracing with offset: without knowledge of this point user would need to click a segment
      * again after every time a new trace with offset is created (to get new "anchor" point)
      */
-    QgsPointXY mTracingStartPoint;
+    QgsPoint mTracingStartPoint;
 
     //! Used to store the state of digitizing type (linear or circular)
     QgsWkbTypes::Type mLineDigitizingType = QgsWkbTypes::LineString;
