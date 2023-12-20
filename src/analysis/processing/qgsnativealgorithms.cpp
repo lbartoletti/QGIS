@@ -44,6 +44,7 @@
 #include "qgsalgorithmcheckgeometryarea.h"
 #include "qgsalgorithmcheckgeometrydangle.h"
 #include "qgsalgorithmcheckgeometrymultipart.h"
+#include "qgsalgorithmcheckgeometryangle.h"
 #include "qgsalgorithmclip.h"
 #include "qgsalgorithmconcavehull.h"
 #include "qgsalgorithmconditionalbranch.h"
@@ -314,6 +315,7 @@ void QgsNativeAlgorithms::loadAlgorithms()
   addAlgorithm( new QgsGeometryCheckAreaAlgorithm() );
   addAlgorithm( new QgsGeometryCheckDangleAlgorithm() );
   addAlgorithm( new QgsGeometryCheckMultipartAlgorithm() );
+  addAlgorithm( new QgsGeometryCheckAngleAlgorithm() );
   addAlgorithm( new QgsClipAlgorithm() );
   addAlgorithm( new QgsCollectAlgorithm() );
   addAlgorithm( new QgsCombineStylesAlgorithm() );
