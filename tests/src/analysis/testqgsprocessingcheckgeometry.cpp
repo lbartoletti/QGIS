@@ -35,6 +35,12 @@ class TestQgsProcessingCheckGeometry: public QgsTest
     void areaAlg();
     void dangleAlg();
 
+    void angleAlg_data();
+    void angleAlg();
+
+    void segmentLengthAlg_data();
+    void segmentLengthAlg();
+
     void multipartAlg_data();
     void multipartAlg();
 
@@ -76,6 +82,86 @@ void TestQgsProcessingCheckGeometry::initTestCase()
 void TestQgsProcessingCheckGeometry::cleanupTestCase()
 {
   QgsApplication::exitQgis();
+}
+
+void TestQgsProcessingCheckGeometry::angleAlg_data()
+{
+  QTest::addColumn<QgsVectorLayer *>( "layerToTest" );
+  QTest::addColumn<int>( "expectedErrorCount" );
+  QTest::newRow( "Line layer" ) << mLineLayer << 4;
+  QTest::newRow( "Polygon layer" ) << mPolygonLayer << 4;
+}
+
+void TestQgsProcessingCheckGeometry::angleAlg()
+{
+  QFETCH( QgsVectorLayer *, layerToTest );
+  QFETCH( int, expectedErrorCount );
+
+  std::unique_ptr< QgsProcessingAlgorithm > alg(
+    QgsApplication::processingRegistry()->createAlgorithmById( QStringLiteral( "native:checkgeometryangle" ) )
+  );
+  QVERIFY( alg != nullptr );
+
+  QVariantMap parameters;
+  parameters.insert( QStringLiteral( "INPUT" ), QVariant::fromValue( layerToTest ) );
+  parameters.insert( QStringLiteral( "MIN_ANGLE" ), 15 );
+  parameters.insert( QStringLiteral( "OUTPUT" ), QgsProcessing::TEMPORARY_OUTPUT );
+  parameters.insert( QStringLiteral( "ERRORS" ), QgsProcessing::TEMPORARY_OUTPUT );
+
+  bool ok = false;
+  QgsProcessingFeedback feedback;
+  std::unique_ptr< QgsProcessingContext > context = std::make_unique< QgsProcessingContext >();
+
+  QVariantMap results;
+  results = alg->run( parameters, *context, &feedback, &ok );
+  QVERIFY( ok );
+
+  std::unique_ptr<QgsVectorLayer> outputLayer( qobject_cast< QgsVectorLayer * >( context->getMapLayer( results.value( QStringLiteral( "OUTPUT" ) ).toString() ) ) );
+  std::unique_ptr<QgsVectorLayer> errorsLayer( qobject_cast< QgsVectorLayer * >( context->getMapLayer( results.value( QStringLiteral( "ERRORS" ) ).toString() ) ) );
+  QVERIFY( outputLayer->isValid() );
+  QVERIFY( errorsLayer->isValid() );
+  QCOMPARE( outputLayer->featureCount(), expectedErrorCount );
+  QCOMPARE( errorsLayer->featureCount(), expectedErrorCount );
+}
+
+void TestQgsProcessingCheckGeometry::segmentLengthAlg_data()
+{
+  QTest::addColumn<QgsVectorLayer *>( "layerToTest" );
+  QTest::addColumn<int>( "expectedErrorCount" );
+  QTest::newRow( "Line layer" ) << mLineLayer << 1;
+  QTest::newRow( "Polygon layer" ) << mPolygonLayer << 3;
+}
+
+void TestQgsProcessingCheckGeometry::segmentLengthAlg()
+{
+  QFETCH( QgsVectorLayer *, layerToTest );
+  QFETCH( int, expectedErrorCount );
+
+  std::unique_ptr< QgsProcessingAlgorithm > alg(
+    QgsApplication::processingRegistry()->createAlgorithmById( QStringLiteral( "native:checkgeometrysegmentlength" ) )
+  );
+  QVERIFY( alg != nullptr );
+
+  QVariantMap parameters;
+  parameters.insert( QStringLiteral( "INPUT" ), QVariant::fromValue( layerToTest ) );
+  parameters.insert( QStringLiteral( "MIN_SEGMENT_LENGTH" ), 0.03 );
+  parameters.insert( QStringLiteral( "OUTPUT" ), QgsProcessing::TEMPORARY_OUTPUT );
+  parameters.insert( QStringLiteral( "ERRORS" ), QgsProcessing::TEMPORARY_OUTPUT );
+
+  bool ok = false;
+  QgsProcessingFeedback feedback;
+  std::unique_ptr< QgsProcessingContext > context = std::make_unique< QgsProcessingContext >();
+
+  QVariantMap results;
+  results = alg->run( parameters, *context, &feedback, &ok );
+  QVERIFY( ok );
+
+  std::unique_ptr<QgsVectorLayer> outputLayer( qobject_cast< QgsVectorLayer * >( context->getMapLayer( results.value( QStringLiteral( "OUTPUT" ) ).toString() ) ) );
+  std::unique_ptr<QgsVectorLayer> errorsLayer( qobject_cast< QgsVectorLayer * >( context->getMapLayer( results.value( QStringLiteral( "ERRORS" ) ).toString() ) ) );
+  QVERIFY( outputLayer->isValid() );
+  QVERIFY( errorsLayer->isValid() );
+  QCOMPARE( outputLayer->featureCount(), expectedErrorCount );
+  QCOMPARE( errorsLayer->featureCount(), expectedErrorCount );
 }
 
 void TestQgsProcessingCheckGeometry::areaAlg()
