@@ -46,6 +46,7 @@
 #include "qgsalgorithmcheckgeometrydangle.h"
 #include "qgsalgorithmcheckgeometrymultipart.h"
 #include "qgsalgorithmcheckgeometryangle.h"
+#include "qgsalgorithmcheckgeometryselfintersection.h"
 #include "qgsalgorithmclip.h"
 #include "qgsalgorithmconcavehull.h"
 #include "qgsalgorithmconditionalbranch.h"
@@ -318,6 +319,7 @@ void QgsNativeAlgorithms::loadAlgorithms()
   addAlgorithm( new QgsGeometryCheckDangleAlgorithm() );
   addAlgorithm( new QgsGeometryCheckMultipartAlgorithm() );
   addAlgorithm( new QgsGeometryCheckAngleAlgorithm() );
+  addAlgorithm( new QgsGeometryCheckSelfIntersectionAlgorithm() );
   addAlgorithm( new QgsClipAlgorithm() );
   addAlgorithm( new QgsCollectAlgorithm() );
   addAlgorithm( new QgsCombineStylesAlgorithm() );
