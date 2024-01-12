@@ -67,6 +67,7 @@ set(QGIS_ANALYSIS_SRCS
   processing/qgsalgorithmcheckgeometryangle.cpp
   processing/qgsalgorithmcheckgeometryselfintersection.cpp
   processing/qgsalgorithmcheckgeometrylinelayerintersection.cpp
+  processing/qgsalgorithmcheckgeometrydegeneratepolygon.cpp
   processing/qgsalgorithmclip.cpp
   processing/qgsalgorithmconcavehull.cpp
   processing/qgsalgorithmconditionalbranch.cpp
