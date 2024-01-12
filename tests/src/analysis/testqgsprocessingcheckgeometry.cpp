@@ -34,6 +34,7 @@ class TestQgsProcessingCheckGeometry: public QgsTest
 
     void areaAlg();
     void dangleAlg();
+    void lineLayerIntersectionAlg();
 
     void angleAlg_data();
     void angleAlg();
@@ -298,6 +299,35 @@ void TestQgsProcessingCheckGeometry::selfIntersectionAlg()
   QVERIFY( errorsLayer->isValid() );
   QCOMPARE( outputLayer->featureCount(), expectedErrorCount );
   QCOMPARE( errorsLayer->featureCount(), expectedErrorCount );
+}
+
+void TestQgsProcessingCheckGeometry::lineLayerIntersectionAlg()
+{
+  std::unique_ptr< QgsProcessingAlgorithm > alg(
+    QgsApplication::processingRegistry()->createAlgorithmById( QStringLiteral( "native:checkgeometrylinelayerintersection" ) )
+  );
+  QVERIFY( alg != nullptr );
+
+  QVariantMap parameters;
+  parameters.insert( QStringLiteral( "INPUT" ), QVariant::fromValue( mLineLayer ) );
+  parameters.insert( QStringLiteral( "INTERSECTION_LAYER" ), QVariant::fromValue( mPolygonLayer ) );
+  parameters.insert( QStringLiteral( "OUTPUT" ), QgsProcessing::TEMPORARY_OUTPUT );
+  parameters.insert( QStringLiteral( "ERRORS" ), QgsProcessing::TEMPORARY_OUTPUT );
+
+  bool ok = false;
+  QgsProcessingFeedback feedback;
+  std::unique_ptr< QgsProcessingContext > context = std::make_unique< QgsProcessingContext >();
+
+  QVariantMap results;
+  results = alg->run( parameters, *context, &feedback, &ok );
+  QVERIFY( ok );
+
+  std::unique_ptr<QgsVectorLayer> outputLayer( qobject_cast< QgsVectorLayer * >( context->getMapLayer( results.value( QStringLiteral( "OUTPUT" ) ).toString() ) ) );
+  std::unique_ptr<QgsVectorLayer> errorsLayer( qobject_cast< QgsVectorLayer * >( context->getMapLayer( results.value( QStringLiteral( "ERRORS" ) ).toString() ) ) );
+  QVERIFY( outputLayer->isValid() );
+  QVERIFY( errorsLayer->isValid() );
+  QCOMPARE( outputLayer->featureCount(), 5 );
+  QCOMPARE( errorsLayer->featureCount(), 5 );
 }
 
 QGSTEST_MAIN( TestQgsProcessingCheckGeometry )
