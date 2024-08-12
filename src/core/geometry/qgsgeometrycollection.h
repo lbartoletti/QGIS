@@ -339,7 +339,8 @@ class CORE_EXPORT QgsGeometryCollection: public QgsAbstractGeometry
 
       const Qgis::WkbType flatType = QgsWkbTypes::flatType( geom->wkbType() );
       if ( QgsWkbTypes::isMultiType( geom->wkbType() )
-           && flatType != Qgis::WkbType::PolyhedralSurface )
+           && flatType != Qgis::WkbType::PolyhedralSurface
+           && flatType != Qgis::WkbType::TIN )
         return static_cast<const QgsGeometryCollection *>( geom );
       return nullptr;
     }

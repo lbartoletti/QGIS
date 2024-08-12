@@ -304,6 +304,7 @@ class CORE_EXPORT QgsPolyhedralSurface: public QgsSurface
 
       const Qgis::WkbType flatType = QgsWkbTypes::flatType( geom->wkbType() );
       if ( flatType == Qgis::WkbType::PolyhedralSurface
+           || flatType == Qgis::WkbType::TIN
            || flatType == Qgis::WkbType::Polygon
            || flatType == Qgis::WkbType::Triangle )
         return static_cast<const QgsPolyhedralSurface *>( geom );
@@ -331,9 +332,7 @@ class CORE_EXPORT QgsPolyhedralSurface: public QgsSurface
     int compareToSameClass( const QgsAbstractGeometry *other ) const override;
     QgsBox3D calculateBoundingBox3D() const override;
 
-  private:
     QVector< QgsPolygon * > mPatches;
-
 };
 
 // clazy:excludeall=qstring-allocations
