@@ -654,6 +654,13 @@ double QgsPolyhedralSurface::closestSegment( const QgsPoint &pt, QgsPoint &segme
 
 bool QgsPolyhedralSurface::nextVertex( QgsVertexId &vId, QgsPoint &vertex ) const
 {
+  if ( vId.part < 0 )
+  {
+    vId.part = 0;
+    vId.ring = -1;
+    vId.vertex = -1;
+  }
+
   if ( isEmpty() || vId.part >= partCount() )
   {
     return false;

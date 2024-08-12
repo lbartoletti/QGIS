@@ -19,7 +19,7 @@ from qgis.testing import start_app, QgisTestCase
 start_app()
 
 
-class TestQgsCompoundCurve(QgisTestCase):
+class TestQgsPolyhedralSurface(QgisTestCase):
 
     def test_constructor(self):
         surface = QgsPolyhedralSurface()

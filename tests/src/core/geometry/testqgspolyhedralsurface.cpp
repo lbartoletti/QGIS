@@ -12,20 +12,16 @@
  *   (at your option) any later version.                                   *
  *                                                                         *
  ***************************************************************************/
+#include "qgstest.h"
+#include <QObject>
+#include <QPainter>
+#include <QString>
 
 #include "qgslinestring.h"
 #include "qgsmultilinestring.h"
 #include "qgspolygon.h"
 #include "qgssurface.h"
-#include "qgstest.h"
-#include <QObject>
-#include <QPainter>
-#include <QString>
-#include <qtestcase.h>
-
 #include "qgspolyhedralsurface.h"
-
-
 #include "qgsvertexid.h"
 #include "testgeometryutils.h"
 
@@ -83,7 +79,7 @@ void TestQgsPolyhedralSurface::testConstructor()
   QVERIFY( !polySurfaceEmpty.hasCurvedSegments() );
   QCOMPARE( polySurfaceEmpty.area(), 0.0 );
   QCOMPARE( polySurfaceEmpty.perimeter(), 0.0 );
-  QVERIFY( !polySurfaceEmpty.patch( 0 ) );
+  QVERIFY( !polySurfaceEmpty.patchN( 0 ) );
 
 
   QgsMultiPolygon *multiPolygon = new QgsMultiPolygon();
@@ -110,7 +106,7 @@ void TestQgsPolyhedralSurface::testConstructor()
   QVERIFY( !polySurface.hasCurvedSegments() );
   QGSCOMPARENEAR( polySurface.area(), 30.5, 0.01 );
   QGSCOMPARENEAR( polySurface.perimeter(), 46.49, 0.01 );
-  QVERIFY( polySurface.patch( 0 ) );
+  QVERIFY( polySurface.patchN( 0 ) );
 }
 
 void TestQgsPolyhedralSurface::testCopyConstructor()
@@ -259,8 +255,8 @@ void TestQgsPolyhedralSurface::testAddPatch()
 
   // empty surface
   QCOMPARE( polySurface.numPatches(), 0 );
-  QVERIFY( !polySurface.patch( -1 ) );
-  QVERIFY( !polySurface.patch( 0 ) );
+  QVERIFY( !polySurface.patchN( -1 ) );
+  QVERIFY( !polySurface.patchN( 0 ) );
 
   polySurface.addPatch( nullptr );
   QCOMPARE( polySurface.numPatches(), 0 );
@@ -279,8 +275,8 @@ void TestQgsPolyhedralSurface::testAddPatch()
   polySurface.addPatch( patch );
 
   QCOMPARE( polySurface.numPatches(), 1 );
-  QCOMPARE( polySurface.patch( 0 ), patch );
-  QVERIFY( !polySurface.patch( 1 ) );
+  QCOMPARE( polySurface.patchN( 0 ), patch );
+  QVERIFY( !polySurface.patchN( 1 ) );
 
   QCOMPARE( polySurface.nCoordinates(), 10 );
 
@@ -302,12 +298,12 @@ void TestQgsPolyhedralSurface::testAddPatch()
   QVERIFY( !polySurface.is3D() );
   QVERIFY( !polySurface.isMeasure() );
   QCOMPARE( polySurface.wkbType(), Qgis::WkbType::PolyhedralSurface );
-  QVERIFY( polySurface.patch( 1 ) );
-  QVERIFY( !polySurface.patch( 1 )->is3D() );
-  QVERIFY( !polySurface.patch( 1 )->isMeasure() );
-  QCOMPARE( polySurface.patch( 1 )->wkbType(), Qgis::WkbType::Polygon );
+  QVERIFY( polySurface.patchN( 1 ) );
+  QVERIFY( !polySurface.patchN( 1 )->is3D() );
+  QVERIFY( !polySurface.patchN( 1 )->isMeasure() );
+  QCOMPARE( polySurface.patchN( 1 )->wkbType(), Qgis::WkbType::Polygon );
 
-  // try adding a patch with m to a 2d polygon, m should be dropped
+  // try adding a patch with zm to a 2d polygon, z and m should be dropped
   patch = new QgsPolygon;
   QgsLineString patchExteriorZM;
   patchExteriorZM.setPoints( QgsPointSequence() << QgsPoint( 10, 0, 1, 2 )
@@ -325,10 +321,10 @@ void TestQgsPolyhedralSurface::testAddPatch()
   QVERIFY( !polySurface.is3D() );
   QVERIFY( !polySurface.isMeasure() );
   QCOMPARE( polySurface.wkbType(), Qgis::WkbType::PolyhedralSurface );
-  QVERIFY( polySurface.patch( 2 ) );
-  QVERIFY( !polySurface.patch( 2 )->is3D() );
-  QVERIFY( !polySurface.patch( 2 )->isMeasure() );
-  QCOMPARE( polySurface.patch( 2 )->wkbType(), Qgis::WkbType::Polygon );
+  QVERIFY( polySurface.patchN( 2 ) );
+  QVERIFY( !polySurface.patchN( 2 )->is3D() );
+  QVERIFY( !polySurface.patchN( 2 )->isMeasure() );
+  QCOMPARE( polySurface.patchN( 2 )->wkbType(), Qgis::WkbType::Polygon );
 
 
   // addPatch without z/m to PolygonZM
@@ -338,14 +334,15 @@ void TestQgsPolyhedralSurface::testAddPatch()
   patch->addInteriorRing( patchInteriorRingZM.clone() );
   polySurface2.addPatch( patch );
 
+  QCOMPARE( polySurface2.numPatches(), 1 );
   QVERIFY( polySurface2.is3D() );
   QVERIFY( polySurface2.isMeasure() );
   QCOMPARE( polySurface2.wkbType(), Qgis::WkbType::PolyhedralSurfaceZM );
-  QVERIFY( polySurface2.patch( 0 ) );
-  QVERIFY( polySurface2.patch( 0 )->is3D() );
-  QVERIFY( polySurface2.patch( 0 )->isMeasure() );
-  QCOMPARE( polySurface2.patch( 0 )->wkbType(), Qgis::WkbType::PolygonZM );
-  QCOMPARE( polySurface2.patch( 0 )->vertexAt( QgsVertexId( 0, 0, 0 ) ), QgsPoint( Qgis::WkbType::PointZM, 10, 0, 1, 2 ) );
+  QVERIFY( polySurface2.patchN( 0 ) );
+  QVERIFY( polySurface2.patchN( 0 )->is3D() );
+  QVERIFY( polySurface2.patchN( 0 )->isMeasure() );
+  QCOMPARE( polySurface2.patchN( 0 )->wkbType(), Qgis::WkbType::PolygonZM );
+  QCOMPARE( polySurface2.patchN( 0 )->vertexAt( QgsVertexId( 0, 0, 0 ) ), QgsPoint( Qgis::WkbType::PointZM, 10, 0, 1, 2 ) );
 
   // patch has no z
   patch = new QgsPolygon();
@@ -353,11 +350,12 @@ void TestQgsPolyhedralSurface::testAddPatch()
   patch->addInteriorRing( patchInteriorRing.clone() );
   polySurface2.addPatch( patch );
 
-  QVERIFY( polySurface2.patch( 1 ) );
-  QVERIFY( polySurface2.patch( 1 )->is3D() );
-  QVERIFY( polySurface2.patch( 1 )->isMeasure() );
-  QCOMPARE( polySurface2.patch( 1 )->wkbType(), Qgis::WkbType::PolygonZM );
-  QCOMPARE( polySurface2.patch( 1 )->vertexAt( QgsVertexId( 0, 0, 0 ) ), QgsPoint( Qgis::WkbType::PointZM, 0, 0, 0, 0 ) );
+  QCOMPARE( polySurface2.numPatches(), 2 );
+  QVERIFY( polySurface2.patchN( 1 ) );
+  QVERIFY( polySurface2.patchN( 1 )->is3D() );
+  QVERIFY( polySurface2.patchN( 1 )->isMeasure() );
+  QCOMPARE( polySurface2.patchN( 1 )->wkbType(), Qgis::WkbType::PolygonZM );
+  QCOMPARE( polySurface2.patchN( 1 )->vertexAt( QgsVertexId( 0, 0, 0 ) ), QgsPoint( Qgis::WkbType::PointZM, 0, 0, 0, 0 ) );
 
   // patch has no m
   patch = new QgsPolygon();
@@ -365,11 +363,12 @@ void TestQgsPolyhedralSurface::testAddPatch()
   patch->addInteriorRing( patchInteriorRingZ.clone() );
   polySurface2.addPatch( patch );
 
-  QVERIFY( polySurface2.patch( 2 ) );
-  QVERIFY( polySurface2.patch( 2 )->is3D() );
-  QVERIFY( polySurface2.patch( 2 )->isMeasure() );
-  QCOMPARE( polySurface2.patch( 2 )->wkbType(), Qgis::WkbType::PolygonZM );
-  QCOMPARE( polySurface2.patch( 2 )->vertexAt( QgsVertexId( 0, 0, 0 ) ), QgsPoint( Qgis::WkbType::PointZM, 10, 0, 1, 0 ) );
+  QCOMPARE( polySurface2.numPatches(), 3 );
+  QVERIFY( polySurface2.patchN( 2 ) );
+  QVERIFY( polySurface2.patchN( 2 )->is3D() );
+  QVERIFY( polySurface2.patchN( 2 )->isMeasure() );
+  QCOMPARE( polySurface2.patchN( 2 )->wkbType(), Qgis::WkbType::PolygonZM );
+  QCOMPARE( polySurface2.patchN( 2 )->vertexAt( QgsVertexId( 0, 0, 0 ) ), QgsPoint( Qgis::WkbType::PointZM, 10, 0, 1, 0 ) );
 }
 
 void TestQgsPolyhedralSurface::testRemovePatch()
@@ -412,16 +411,16 @@ void TestQgsPolyhedralSurface::testRemovePatch()
   polySurface.setPatches( patches );
 
   QCOMPARE( polySurface.numPatches(), 3 );
-  QCOMPARE( polySurface.patch( 0 )->vertexAt( QgsVertexId( 0, 0, 0 ) ), QgsPoint( 0.1, 0.1 ) );
+  QCOMPARE( polySurface.patchN( 0 )->vertexAt( QgsVertexId( 0, 0, 0 ) ), QgsPoint( 0.1, 0.1 ) );
 
   QVERIFY( polySurface.removePatch( 0 ) );
   QCOMPARE( polySurface.numPatches(), 2 );
-  QCOMPARE( polySurface.patch( 0 )->vertexAt( QgsVertexId( 0, 0, 0 ) ), QgsPoint( 0.2, 0.1 ) );
-  QCOMPARE( polySurface.patch( 1 )->vertexAt( QgsVertexId( 0, 0, 0 ) ), QgsPoint( 0.3, 0.1 ) );
+  QCOMPARE( polySurface.patchN( 0 )->vertexAt( QgsVertexId( 0, 0, 0 ) ), QgsPoint( 0.2, 0.1 ) );
+  QCOMPARE( polySurface.patchN( 1 )->vertexAt( QgsVertexId( 0, 0, 0 ) ), QgsPoint( 0.3, 0.1 ) );
 
   QVERIFY( polySurface.removePatch( 1 ) );
   QCOMPARE( polySurface.numPatches(), 1 );
-  QCOMPARE( polySurface.patch( 0 )->vertexAt( QgsVertexId( 0, 0, 0 ) ), QgsPoint( 0.2, 0.1 ) );
+  QCOMPARE( polySurface.patchN( 0 )->vertexAt( QgsVertexId( 0, 0, 0 ) ), QgsPoint( 0.2, 0.1 ) );
 
   QVERIFY( polySurface.removePatch( 0 ) );
   QCOMPARE( polySurface.numPatches(), 0 );
@@ -459,10 +458,10 @@ void TestQgsPolyhedralSurface::test3DPatches()
 
   QVERIFY( polySurface.is3D() );
   QVERIFY( !polySurface.isMeasure() );
-  QVERIFY( polySurface.patch( 0 )->is3D() );
-  QVERIFY( !polySurface.patch( 0 )->isMeasure() );
-  QVERIFY( polySurface.patch( 1 )->is3D() );
-  QVERIFY( !polySurface.patch( 1 )->isMeasure() );
+  QVERIFY( polySurface.patchN( 0 )->is3D() );
+  QVERIFY( !polySurface.patchN( 0 )->isMeasure() );
+  QVERIFY( polySurface.patchN( 1 )->is3D() );
+  QVERIFY( !polySurface.patchN( 1 )->isMeasure() );
 }
 
 void TestQgsPolyhedralSurface::testAreaPerimeter()
@@ -503,9 +502,9 @@ void TestQgsPolyhedralSurface::testInsertVertex()
 
   QVERIFY( polySurface.insertVertex( QgsVertexId( 0, 0, 1 ), QgsPoint( 0.3, 0 ) ) );
   QCOMPARE( polySurface.nCoordinates(), 8 );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 0 )->exteriorRing() )->pointN( 0 ), QgsPoint( 0, 0 ) );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 0 )->exteriorRing() )->pointN( 1 ), QgsPoint( 0.3, 0 ) );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 0 )->exteriorRing() )->pointN( 2 ), QgsPoint( 0.5, 0 ) );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 0 )->exteriorRing() )->pointN( 0 ), QgsPoint( 0, 0 ) );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 0 )->exteriorRing() )->pointN( 1 ), QgsPoint( 0.3, 0 ) );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 0 )->exteriorRing() )->pointN( 2 ), QgsPoint( 0.5, 0 ) );
   QVERIFY( !polySurface.insertVertex( QgsVertexId( 0, 0, -1 ), QgsPoint( 6.0, 7.0 ) ) );
   QVERIFY( !polySurface.insertVertex( QgsVertexId( 0, 0, 100 ), QgsPoint( 6.0, 7.0 ) ) );
   QVERIFY( !polySurface.insertVertex( QgsVertexId( 0, 1, 0 ), QgsPoint( 6.0, 7.0 ) ) );
@@ -514,22 +513,22 @@ void TestQgsPolyhedralSurface::testInsertVertex()
   // first vertex
   QVERIFY( polySurface.insertVertex( QgsVertexId( 0, 0, 0 ), QgsPoint( 0, 0.1 ) ) );
   QCOMPARE( polySurface.nCoordinates(), 9 );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 0 )->exteriorRing() )->pointN( 0 ), QgsPoint( 0, 0.1 ) );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 0 )->exteriorRing() )->pointN( 1 ), QgsPoint( 0, 0 ) );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 0 )->exteriorRing() )->pointN( 2 ), QgsPoint( 0.3, 0 ) );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 0 )->exteriorRing() )->pointN( 3 ), QgsPoint( 0.5, 0 ) );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 0 )->exteriorRing() )->pointN( 7 ), QgsPoint( 0, 2 ) );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 0 )->exteriorRing() )->pointN( 8 ), QgsPoint( 0, 0.1 ) );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 0 )->exteriorRing() )->pointN( 0 ), QgsPoint( 0, 0.1 ) );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 0 )->exteriorRing() )->pointN( 1 ), QgsPoint( 0, 0 ) );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 0 )->exteriorRing() )->pointN( 2 ), QgsPoint( 0.3, 0 ) );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 0 )->exteriorRing() )->pointN( 3 ), QgsPoint( 0.5, 0 ) );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 0 )->exteriorRing() )->pointN( 7 ), QgsPoint( 0, 2 ) );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 0 )->exteriorRing() )->pointN( 8 ), QgsPoint( 0, 0.1 ) );
 
   // last vertex
   QVERIFY( polySurface.insertVertex( QgsVertexId( 0, 0, 9 ), QgsPoint( 0.1, 0.1 ) ) );
   QCOMPARE( polySurface.nCoordinates(), 10 );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 0 )->exteriorRing() )->pointN( 0 ), QgsPoint( 0.1, 0.1 ) );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 0 )->exteriorRing() )->pointN( 1 ), QgsPoint( 0, 0 ) );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 0 )->exteriorRing() )->pointN( 2 ), QgsPoint( 0.3, 0 ) );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 0 )->exteriorRing() )->pointN( 3 ), QgsPoint( 0.5, 0 ) );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 0 )->exteriorRing() )->pointN( 8 ), QgsPoint( 0, 0.1 ) );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 0 )->exteriorRing() )->pointN( 9 ), QgsPoint( 0.1, 0.1 ) );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 0 )->exteriorRing() )->pointN( 0 ), QgsPoint( 0.1, 0.1 ) );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 0 )->exteriorRing() )->pointN( 1 ), QgsPoint( 0, 0 ) );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 0 )->exteriorRing() )->pointN( 2 ), QgsPoint( 0.3, 0 ) );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 0 )->exteriorRing() )->pointN( 3 ), QgsPoint( 0.5, 0 ) );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 0 )->exteriorRing() )->pointN( 8 ), QgsPoint( 0, 0.1 ) );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 0 )->exteriorRing() )->pointN( 9 ), QgsPoint( 0.1, 0.1 ) );
 
   // add a second patch with an interior ring
   patch.clear();
@@ -549,14 +548,14 @@ void TestQgsPolyhedralSurface::testInsertVertex()
   QCOMPARE( polySurface.nCoordinates(), 20 );
   QVERIFY( polySurface.insertVertex( QgsVertexId( 1, 0, 1 ), QgsPoint( 10.5, 10 ) ) );
   QCOMPARE( polySurface.nCoordinates(), 21 );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 1 )->exteriorRing() )->pointN( 0 ), QgsPoint( 10, 10 ) );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 1 )->exteriorRing() )->pointN( 1 ), QgsPoint( 10.5, 10 ) );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 1 )->exteriorRing() )->pointN( 2 ), QgsPoint( 12, 10 ) );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 1 )->exteriorRing() )->pointN( 0 ), QgsPoint( 10, 10 ) );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 1 )->exteriorRing() )->pointN( 1 ), QgsPoint( 10.5, 10 ) );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 1 )->exteriorRing() )->pointN( 2 ), QgsPoint( 12, 10 ) );
   QVERIFY( polySurface.insertVertex( QgsVertexId( 1, 1, 1 ), QgsPoint( 10.8, 10.2 ) ) );
   QCOMPARE( polySurface.nCoordinates(), 22 );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 1 )->interiorRing( 0 ) )->pointN( 0 ), QgsPoint( 10.2, 10.2 ) );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 1 )->interiorRing( 0 ) )->pointN( 1 ), QgsPoint( 10.8, 10.2 ) );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 1 )->interiorRing( 0 ) )->pointN( 2 ), QgsPoint( 10.9, 10.2 ) );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 1 )->interiorRing( 0 ) )->pointN( 0 ), QgsPoint( 10.2, 10.2 ) );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 1 )->interiorRing( 0 ) )->pointN( 1 ), QgsPoint( 10.8, 10.2 ) );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 1 )->interiorRing( 0 ) )->pointN( 2 ), QgsPoint( 10.9, 10.2 ) );
   QVERIFY( !polySurface.insertVertex( QgsVertexId( 1, 0, -1 ), QgsPoint( 6.0, 7.0 ) ) );
   QVERIFY( !polySurface.insertVertex( QgsVertexId( 1, 0, 100 ), QgsPoint( 6.0, 7.0 ) ) );
   QVERIFY( !polySurface.insertVertex( QgsVertexId( 1, 2, 0 ), QgsPoint( 6.0, 7.0 ) ) );
@@ -566,25 +565,25 @@ void TestQgsPolyhedralSurface::testInsertVertex()
   // first vertex second patch
   QVERIFY( polySurface.insertVertex( QgsVertexId( 1, 0, 0 ), QgsPoint( 9, 10 ) ) );
   QCOMPARE( polySurface.nCoordinates(), 23 );
-  QCOMPARE( polySurface.patch( 1 )->exteriorRing()->numPoints(), 7 );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 1 )->exteriorRing() )->pointN( 0 ), QgsPoint( 9, 10 ) );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 1 )->exteriorRing() )->pointN( 1 ), QgsPoint( 10, 10 ) );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 1 )->exteriorRing() )->pointN( 2 ), QgsPoint( 10.5, 10 ) );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 1 )->exteriorRing() )->pointN( 3 ), QgsPoint( 12, 10 ) );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 1 )->exteriorRing() )->pointN( 5 ), QgsPoint( 10, 12 ) );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 1 )->exteriorRing() )->pointN( 6 ), QgsPoint( 9, 10 ) );
+  QCOMPARE( polySurface.patchN( 1 )->exteriorRing()->numPoints(), 7 );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 1 )->exteriorRing() )->pointN( 0 ), QgsPoint( 9, 10 ) );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 1 )->exteriorRing() )->pointN( 1 ), QgsPoint( 10, 10 ) );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 1 )->exteriorRing() )->pointN( 2 ), QgsPoint( 10.5, 10 ) );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 1 )->exteriorRing() )->pointN( 3 ), QgsPoint( 12, 10 ) );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 1 )->exteriorRing() )->pointN( 5 ), QgsPoint( 10, 12 ) );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 1 )->exteriorRing() )->pointN( 6 ), QgsPoint( 9, 10 ) );
 
   // last vertex second patch
-  QCOMPARE( polySurface.patch( 1 )->interiorRing( 0 )->numPoints(), 6 );
+  QCOMPARE( polySurface.patchN( 1 )->interiorRing( 0 )->numPoints(), 6 );
   QVERIFY( polySurface.insertVertex( QgsVertexId( 1, 1, 6 ), QgsPoint( 0.1, 0.1 ) ) );
   QCOMPARE( polySurface.nCoordinates(), 24 );
-  QCOMPARE( polySurface.patch( 1 )->interiorRing( 0 )->numPoints(), 7 );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 1 )->interiorRing( 0 ) )->pointN( 0 ), QgsPoint( 0.1, 0.1 ) );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 1 )->interiorRing( 0 ) )->pointN( 1 ), QgsPoint( 10.8, 10.2 ) );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 1 )->interiorRing( 0 ) )->pointN( 2 ), QgsPoint( 10.9, 10.2 ) );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 1 )->interiorRing( 0 ) )->pointN( 3 ), QgsPoint( 10.9, 11.2 ) );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 1 )->interiorRing( 0 ) )->pointN( 5 ), QgsPoint( 10.2, 10.2 ) );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 1 )->interiorRing( 0 ) )->pointN( 6 ), QgsPoint( 0.1, 0.1 ) );
+  QCOMPARE( polySurface.patchN( 1 )->interiorRing( 0 )->numPoints(), 7 );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 1 )->interiorRing( 0 ) )->pointN( 0 ), QgsPoint( 0.1, 0.1 ) );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 1 )->interiorRing( 0 ) )->pointN( 1 ), QgsPoint( 10.8, 10.2 ) );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 1 )->interiorRing( 0 ) )->pointN( 2 ), QgsPoint( 10.9, 10.2 ) );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 1 )->interiorRing( 0 ) )->pointN( 3 ), QgsPoint( 10.9, 11.2 ) );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 1 )->interiorRing( 0 ) )->pointN( 5 ), QgsPoint( 10.2, 10.2 ) );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 1 )->interiorRing( 0 ) )->pointN( 6 ), QgsPoint( 0.1, 0.1 ) );
 }
 
 void TestQgsPolyhedralSurface::testMoveVertex()
@@ -606,26 +605,26 @@ void TestQgsPolyhedralSurface::testMoveVertex()
   QVERIFY( polySurface.moveVertex( QgsVertexId( 0, 0, 0 ), QgsPoint( 6.0, 7.0 ) ) );
   QVERIFY( polySurface.moveVertex( QgsVertexId( 0, 0, 1 ), QgsPoint( 16.0, 17.0 ) ) );
   QVERIFY( polySurface.moveVertex( QgsVertexId( 0, 0, 2 ), QgsPoint( 26.0, 27.0 ) ) );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 0 )->exteriorRing() )->pointN( 0 ), QgsPoint( 6.0, 7.0 ) );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 0 )->exteriorRing() )->pointN( 1 ), QgsPoint( 16.0, 17.0 ) );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 0 )->exteriorRing() )->pointN( 2 ), QgsPoint( 26.0, 27.0 ) );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 0 )->exteriorRing() )->pointN( 3 ), QgsPoint( 6.0, 7.0 ) );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 0 )->exteriorRing() )->pointN( 0 ), QgsPoint( 6.0, 7.0 ) );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 0 )->exteriorRing() )->pointN( 1 ), QgsPoint( 16.0, 17.0 ) );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 0 )->exteriorRing() )->pointN( 2 ), QgsPoint( 26.0, 27.0 ) );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 0 )->exteriorRing() )->pointN( 3 ), QgsPoint( 6.0, 7.0 ) );
 
   // move last vertex
   QVERIFY( polySurface.moveVertex( QgsVertexId( 0, 0, 3 ), QgsPoint( 1.0, 2.0 ) ) );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 0 )->exteriorRing() )->pointN( 0 ), QgsPoint( 1.0, 2.0 ) );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 0 )->exteriorRing() )->pointN( 1 ), QgsPoint( 16.0, 17.0 ) );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 0 )->exteriorRing() )->pointN( 2 ), QgsPoint( 26.0, 27.0 ) );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 0 )->exteriorRing() )->pointN( 3 ), QgsPoint( 1.0, 2.0 ) );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 0 )->exteriorRing() )->pointN( 0 ), QgsPoint( 1.0, 2.0 ) );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 0 )->exteriorRing() )->pointN( 1 ), QgsPoint( 16.0, 17.0 ) );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 0 )->exteriorRing() )->pointN( 2 ), QgsPoint( 26.0, 27.0 ) );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 0 )->exteriorRing() )->pointN( 3 ), QgsPoint( 1.0, 2.0 ) );
 
   // out of range
   QVERIFY( !polySurface.moveVertex( QgsVertexId( 0, 0, -1 ), QgsPoint( 3.0, 4.0 ) ) );
   QVERIFY( !polySurface.moveVertex( QgsVertexId( 0, 0, 10 ), QgsPoint( 3.0, 4.0 ) ) );
   QVERIFY( !polySurface.moveVertex( QgsVertexId( 1, 0, 0 ), QgsPoint( 3.0, 4.0 ) ) );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 0 )->exteriorRing() )->pointN( 0 ), QgsPoint( 1.0, 2.0 ) );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 0 )->exteriorRing() )->pointN( 1 ), QgsPoint( 16.0, 17.0 ) );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 0 )->exteriorRing() )->pointN( 2 ), QgsPoint( 26.0, 27.0 ) );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 0 )->exteriorRing() )->pointN( 3 ), QgsPoint( 1.0, 2.0 ) );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 0 )->exteriorRing() )->pointN( 0 ), QgsPoint( 1.0, 2.0 ) );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 0 )->exteriorRing() )->pointN( 1 ), QgsPoint( 16.0, 17.0 ) );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 0 )->exteriorRing() )->pointN( 2 ), QgsPoint( 26.0, 27.0 ) );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 0 )->exteriorRing() )->pointN( 3 ), QgsPoint( 1.0, 2.0 ) );
 
   // add a second patch with an interior ring
   patch.clear();
@@ -644,25 +643,25 @@ void TestQgsPolyhedralSurface::testMoveVertex()
   QVERIFY( polySurface.moveVertex( QgsVertexId( 1, 0, 0 ), QgsPoint( 4.0, 5.0 ) ) );
   QVERIFY( polySurface.moveVertex( QgsVertexId( 1, 0, 1 ), QgsPoint( 14.0, 15.0 ) ) );
   QVERIFY( polySurface.moveVertex( QgsVertexId( 1, 0, 2 ), QgsPoint( 24.0, 25.0 ) ) );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 1 )->exteriorRing() )->pointN( 0 ), QgsPoint( 4.0, 5.0 ) );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 1 )->exteriorRing() )->pointN( 1 ), QgsPoint( 14.0, 15.0 ) );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 1 )->exteriorRing() )->pointN( 2 ), QgsPoint( 24.0, 25.0 ) );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 1 )->exteriorRing() )->pointN( 4 ), QgsPoint( 4.0, 5.0 ) );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 1 )->exteriorRing() )->pointN( 0 ), QgsPoint( 4.0, 5.0 ) );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 1 )->exteriorRing() )->pointN( 1 ), QgsPoint( 14.0, 15.0 ) );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 1 )->exteriorRing() )->pointN( 2 ), QgsPoint( 24.0, 25.0 ) );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 1 )->exteriorRing() )->pointN( 4 ), QgsPoint( 4.0, 5.0 ) );
 
   QVERIFY( polySurface.moveVertex( QgsVertexId( 1, 1, 0 ), QgsPoint( 3.0, 4.0 ) ) );
   QVERIFY( polySurface.moveVertex( QgsVertexId( 1, 1, 1 ), QgsPoint( 13.0, 14.0 ) ) );
   QVERIFY( polySurface.moveVertex( QgsVertexId( 1, 1, 2 ), QgsPoint( 23.0, 24.0 ) ) );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 1 )->interiorRing( 0 ) )->pointN( 0 ), QgsPoint( 3.0, 4.0 ) );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 1 )->interiorRing( 0 ) )->pointN( 1 ), QgsPoint( 13.0, 14.0 ) );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 1 )->interiorRing( 0 ) )->pointN( 2 ), QgsPoint( 23.0, 24.0 ) );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 1 )->interiorRing( 0 ) )->pointN( 4 ), QgsPoint( 3.0, 4.0 ) );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 1 )->interiorRing( 0 ) )->pointN( 0 ), QgsPoint( 3.0, 4.0 ) );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 1 )->interiorRing( 0 ) )->pointN( 1 ), QgsPoint( 13.0, 14.0 ) );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 1 )->interiorRing( 0 ) )->pointN( 2 ), QgsPoint( 23.0, 24.0 ) );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 1 )->interiorRing( 0 ) )->pointN( 4 ), QgsPoint( 3.0, 4.0 ) );
 
   // move last vertex
   QVERIFY( polySurface.moveVertex( QgsVertexId( 1, 1, 4 ), QgsPoint( -1.0, -2.0 ) ) );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 1 )->interiorRing( 0 ) )->pointN( 0 ), QgsPoint( -1.0, -2.0 ) );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 1 )->interiorRing( 0 ) )->pointN( 1 ), QgsPoint( 13.0, 14.0 ) );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 1 )->interiorRing( 0 ) )->pointN( 2 ), QgsPoint( 23.0, 24.0 ) );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 1 )->interiorRing( 0 ) )->pointN( 4 ), QgsPoint( -1.0, -2.0 ) );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 1 )->interiorRing( 0 ) )->pointN( 0 ), QgsPoint( -1.0, -2.0 ) );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 1 )->interiorRing( 0 ) )->pointN( 1 ), QgsPoint( 13.0, 14.0 ) );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 1 )->interiorRing( 0 ) )->pointN( 2 ), QgsPoint( 23.0, 24.0 ) );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 1 )->interiorRing( 0 ) )->pointN( 4 ), QgsPoint( -1.0, -2.0 ) );
 
   // out of range
   QVERIFY( !polySurface.moveVertex( QgsVertexId( 1, 1, -1 ), QgsPoint( 3.0, 4.0 ) ) );
@@ -670,14 +669,14 @@ void TestQgsPolyhedralSurface::testMoveVertex()
   QVERIFY( !polySurface.moveVertex( QgsVertexId( 1, 1, 10 ), QgsPoint( 3.0, 4.0 ) ) );
   QVERIFY( !polySurface.moveVertex( QgsVertexId( 1, 0, 10 ), QgsPoint( 3.0, 4.0 ) ) );
   QVERIFY( !polySurface.moveVertex( QgsVertexId( 2, 0, 0 ), QgsPoint( 3.0, 4.0 ) ) );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 1 )->exteriorRing() )->pointN( 0 ), QgsPoint( 4.0, 5.0 ) );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 1 )->exteriorRing() )->pointN( 1 ), QgsPoint( 14.0, 15.0 ) );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 1 )->exteriorRing() )->pointN( 2 ), QgsPoint( 24.0, 25.0 ) );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 1 )->exteriorRing() )->pointN( 3 ), QgsPoint( 10.0, 12.0 ) );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 1 )->interiorRing( 0 ) )->pointN( 0 ), QgsPoint( -1.0, -2.0 ) );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 1 )->interiorRing( 0 ) )->pointN( 1 ), QgsPoint( 13.0, 14.0 ) );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 1 )->interiorRing( 0 ) )->pointN( 2 ), QgsPoint( 23.0, 24.0 ) );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 1 )->interiorRing( 0 ) )->pointN( 3 ), QgsPoint( 10.2, 11.2 ) );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 1 )->exteriorRing() )->pointN( 0 ), QgsPoint( 4.0, 5.0 ) );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 1 )->exteriorRing() )->pointN( 1 ), QgsPoint( 14.0, 15.0 ) );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 1 )->exteriorRing() )->pointN( 2 ), QgsPoint( 24.0, 25.0 ) );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 1 )->exteriorRing() )->pointN( 3 ), QgsPoint( 10.0, 12.0 ) );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 1 )->interiorRing( 0 ) )->pointN( 0 ), QgsPoint( -1.0, -2.0 ) );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 1 )->interiorRing( 0 ) )->pointN( 1 ), QgsPoint( 13.0, 14.0 ) );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 1 )->interiorRing( 0 ) )->pointN( 2 ), QgsPoint( 23.0, 24.0 ) );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 1 )->interiorRing( 0 ) )->pointN( 3 ), QgsPoint( 10.2, 11.2 ) );
 }
 
 void TestQgsPolyhedralSurface::testDeleteVertex()
@@ -705,30 +704,30 @@ void TestQgsPolyhedralSurface::testDeleteVertex()
 
   // valid vertices
   QVERIFY( polySurface.deleteVertex( QgsVertexId( 0, 0, 1 ) ) );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 0 )->exteriorRing() )->pointN( 0 ), QgsPoint( 1.0, 2.0 ) );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 0 )->exteriorRing() )->pointN( 1 ), QgsPoint( 6.0, 2.0 ) );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 0 )->exteriorRing() )->pointN( 2 ), QgsPoint( 7.0, 2.0 ) );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 0 )->exteriorRing() )->pointN( 3 ), QgsPoint( 11.0, 12.0 ) );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 0 )->exteriorRing() )->pointN( 5 ), QgsPoint( 1.0, 2.0 ) );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 0 )->exteriorRing() )->pointN( 0 ), QgsPoint( 1.0, 2.0 ) );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 0 )->exteriorRing() )->pointN( 1 ), QgsPoint( 6.0, 2.0 ) );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 0 )->exteriorRing() )->pointN( 2 ), QgsPoint( 7.0, 2.0 ) );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 0 )->exteriorRing() )->pointN( 3 ), QgsPoint( 11.0, 12.0 ) );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 0 )->exteriorRing() )->pointN( 5 ), QgsPoint( 1.0, 2.0 ) );
 
   // delete first vertex
   QVERIFY( polySurface.deleteVertex( QgsVertexId( 0, 0, 0 ) ) );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 0 )->exteriorRing() )->pointN( 0 ), QgsPoint( 6.0, 2.0 ) );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 0 )->exteriorRing() )->pointN( 1 ), QgsPoint( 7.0, 2.0 ) );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 0 )->exteriorRing() )->pointN( 2 ), QgsPoint( 11.0, 12.0 ) );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 0 )->exteriorRing() )->pointN( 3 ), QgsPoint( 21.0, 22.0 ) );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 0 )->exteriorRing() )->pointN( 4 ), QgsPoint( 6.0, 2.0 ) );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 0 )->exteriorRing() )->pointN( 0 ), QgsPoint( 6.0, 2.0 ) );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 0 )->exteriorRing() )->pointN( 1 ), QgsPoint( 7.0, 2.0 ) );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 0 )->exteriorRing() )->pointN( 2 ), QgsPoint( 11.0, 12.0 ) );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 0 )->exteriorRing() )->pointN( 3 ), QgsPoint( 21.0, 22.0 ) );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 0 )->exteriorRing() )->pointN( 4 ), QgsPoint( 6.0, 2.0 ) );
 
   // delete last vertex
   QVERIFY( polySurface.deleteVertex( QgsVertexId( 0, 0, 4 ) ) );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 0 )->exteriorRing() )->pointN( 0 ), QgsPoint( 21.0, 22.0 ) );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 0 )->exteriorRing() )->pointN( 1 ), QgsPoint( 7.0, 2.0 ) );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 0 )->exteriorRing() )->pointN( 2 ), QgsPoint( 11.0, 12.0 ) );
-  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patch( 0 )->exteriorRing() )->pointN( 3 ), QgsPoint( 21.0, 22.0 ) );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 0 )->exteriorRing() )->pointN( 0 ), QgsPoint( 21.0, 22.0 ) );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 0 )->exteriorRing() )->pointN( 1 ), QgsPoint( 7.0, 2.0 ) );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 0 )->exteriorRing() )->pointN( 2 ), QgsPoint( 11.0, 12.0 ) );
+  QCOMPARE( static_cast< const QgsLineString * >( polySurface.patchN( 0 )->exteriorRing() )->pointN( 3 ), QgsPoint( 21.0, 22.0 ) );
 
   // delete another vertex - should remove patch
   QVERIFY( polySurface.deleteVertex( QgsVertexId( 0, 0, 1 ) ) );
-  QVERIFY( !polySurface.patch( 0 ) );
+  QVERIFY( !polySurface.patchN( 0 ) );
 }
 
 void TestQgsPolyhedralSurface::testNextVertex()
@@ -744,6 +743,10 @@ void TestQgsPolyhedralSurface::testNextVertex()
   // nextVertex
   QgsPolyhedralSurface surfacePoly;
   QVERIFY( !surfacePoly.nextVertex( vId, pt ) );
+
+  vId = QgsVertexId( -1, 0, 0 );
+  QVERIFY( !surfacePoly.nextVertex( vId, pt ) );
+  QCOMPARE( vId, QgsVertexId( 0, -1, -1 ) );
 
   vId = QgsVertexId( 0, 0, -2 );
   QVERIFY( !surfacePoly.nextVertex( vId, pt ) );
@@ -886,9 +889,9 @@ void TestQgsPolyhedralSurface::testDeleteVertexRemovePatch()
   patch->setExteriorRing( patchExterior );
   polySurface.addPatch( patch );
 
-  QVERIFY( polySurface.patch( 0 ) );
+  QVERIFY( polySurface.patchN( 0 ) );
   polySurface.deleteVertex( QgsVertexId( 0, 0, 2 ) );
-  QVERIFY( !polySurface.patch( 0 ) );
+  QVERIFY( !polySurface.patchN( 0 ) );
 }
 
 void TestQgsPolyhedralSurface::testVertexNumberFromVertexId()
@@ -1276,8 +1279,8 @@ void TestQgsPolyhedralSurface::testDropZValue()
 
   polySurface.dropZValue(); // not z
   QCOMPARE( polySurface.wkbType(), Qgis::WkbType::PolyhedralSurface );
-  QCOMPARE( polySurface.patch( 0 )->wkbType(), Qgis::WkbType::Polygon );
-  QCOMPARE( static_cast< const QgsLineString *>( polySurface.patch( 0 )->exteriorRing() )->pointN( 0 ), QgsPoint( 1, 2 ) );
+  QCOMPARE( polySurface.patchN( 0 )->wkbType(), Qgis::WkbType::Polygon );
+  QCOMPARE( static_cast< const QgsLineString *>( polySurface.patchN( 0 )->exteriorRing() )->pointN( 0 ), QgsPoint( 1, 2 ) );
 
   // with z
   exteriorRing = new QgsLineString();
@@ -1288,13 +1291,13 @@ void TestQgsPolyhedralSurface::testDropZValue()
   polySurface.addPatch( patch.clone() );
 
   QCOMPARE( polySurface.wkbType(), Qgis::WkbType::PolyhedralSurfaceZ );
-  QCOMPARE( polySurface.patch( 0 )->wkbType(), Qgis::WkbType::PolygonZ );
-  QCOMPARE( static_cast< const QgsLineString *>( polySurface.patch( 0 )->exteriorRing() )->pointN( 0 ), QgsPoint( 10, 20, 3 ) );
+  QCOMPARE( polySurface.patchN( 0 )->wkbType(), Qgis::WkbType::PolygonZ );
+  QCOMPARE( static_cast< const QgsLineString *>( polySurface.patchN( 0 )->exteriorRing() )->pointN( 0 ), QgsPoint( 10, 20, 3 ) );
 
   polySurface.dropZValue();
   QCOMPARE( polySurface.wkbType(), Qgis::WkbType::PolyhedralSurface );
-  QCOMPARE( polySurface.patch( 0 )->wkbType(), Qgis::WkbType::Polygon );
-  QCOMPARE( static_cast< const QgsLineString *>( polySurface.patch( 0 )->exteriorRing() )->pointN( 0 ), QgsPoint( 10, 20 ) );
+  QCOMPARE( polySurface.patchN( 0 )->wkbType(), Qgis::WkbType::Polygon );
+  QCOMPARE( static_cast< const QgsLineString *>( polySurface.patchN( 0 )->exteriorRing() )->pointN( 0 ), QgsPoint( 10, 20 ) );
 
   // with zm
   exteriorRing = new QgsLineString();
@@ -1305,13 +1308,13 @@ void TestQgsPolyhedralSurface::testDropZValue()
   polySurface.addPatch( patch.clone() );
 
   QCOMPARE( polySurface.wkbType(), Qgis::WkbType::PolyhedralSurfaceZM );
-  QCOMPARE( polySurface.patch( 0 )->wkbType(), Qgis::WkbType::PolygonZM );
-  QCOMPARE( static_cast< const QgsLineString *>( polySurface.patch( 0 )->exteriorRing() )->pointN( 0 ), QgsPoint( Qgis::WkbType::PointZM, 1, 2, 3, 4 ) );
+  QCOMPARE( polySurface.patchN( 0 )->wkbType(), Qgis::WkbType::PolygonZM );
+  QCOMPARE( static_cast< const QgsLineString *>( polySurface.patchN( 0 )->exteriorRing() )->pointN( 0 ), QgsPoint( Qgis::WkbType::PointZM, 1, 2, 3, 4 ) );
 
   polySurface.dropZValue();
   QCOMPARE( polySurface.wkbType(), Qgis::WkbType::PolyhedralSurfaceM );
-  QCOMPARE( polySurface.patch( 0 )->wkbType(), Qgis::WkbType::PolygonM );
-  QCOMPARE( static_cast< const QgsLineString *>( polySurface.patch( 0 )->exteriorRing() )->pointN( 0 ), QgsPoint( Qgis::WkbType::PointM, 1, 2, 0, 4 ) );
+  QCOMPARE( polySurface.patchN( 0 )->wkbType(), Qgis::WkbType::PolygonM );
+  QCOMPARE( static_cast< const QgsLineString *>( polySurface.patchN( 0 )->exteriorRing() )->pointN( 0 ), QgsPoint( Qgis::WkbType::PointM, 1, 2, 0, 4 ) );
 }
 
 void TestQgsPolyhedralSurface::testDropMValue()
@@ -1330,12 +1333,12 @@ void TestQgsPolyhedralSurface::testDropMValue()
   polySurface.addPatch( patch.clone() );
 
   QCOMPARE( polySurface.wkbType(), Qgis::WkbType::PolyhedralSurface );
-  QCOMPARE( static_cast< const QgsLineString *>( polySurface.patch( 0 )->exteriorRing() )->pointN( 0 ), QgsPoint( 1, 2 ) );
+  QCOMPARE( static_cast< const QgsLineString *>( polySurface.patchN( 0 )->exteriorRing() )->pointN( 0 ), QgsPoint( 1, 2 ) );
 
   polySurface.dropMValue(); // not zm
   QCOMPARE( polySurface.wkbType(), Qgis::WkbType::PolyhedralSurface );
-  QCOMPARE( polySurface.patch( 0 )->wkbType(), Qgis::WkbType::Polygon );
-  QCOMPARE( static_cast< const QgsLineString *>( polySurface.patch( 0 )->exteriorRing() )->pointN( 0 ), QgsPoint( 1, 2 ) );
+  QCOMPARE( polySurface.patchN( 0 )->wkbType(), Qgis::WkbType::Polygon );
+  QCOMPARE( static_cast< const QgsLineString *>( polySurface.patchN( 0 )->exteriorRing() )->pointN( 0 ), QgsPoint( 1, 2 ) );
 
   // with m
   exteriorRing = new QgsLineString();
@@ -1348,13 +1351,13 @@ void TestQgsPolyhedralSurface::testDropMValue()
   polySurface.addPatch( patch.clone() );
 
   QCOMPARE( polySurface.wkbType(), Qgis::WkbType::PolyhedralSurfaceM );
-  QCOMPARE( polySurface.patch( 0 )->wkbType(), Qgis::WkbType::PolygonM );
-  QCOMPARE( static_cast< const QgsLineString *>( polySurface.patch( 0 )->exteriorRing() )->pointN( 0 ), QgsPoint( Qgis::WkbType::PointM, 1, 2, 0, 3 ) );
+  QCOMPARE( polySurface.patchN( 0 )->wkbType(), Qgis::WkbType::PolygonM );
+  QCOMPARE( static_cast< const QgsLineString *>( polySurface.patchN( 0 )->exteriorRing() )->pointN( 0 ), QgsPoint( Qgis::WkbType::PointM, 1, 2, 0, 3 ) );
 
   polySurface.dropMValue();
   QCOMPARE( polySurface.wkbType(), Qgis::WkbType::PolyhedralSurface );
-  QCOMPARE( polySurface.patch( 0 )->wkbType(), Qgis::WkbType::Polygon );
-  QCOMPARE( static_cast< const QgsLineString *>( polySurface.patch( 0 )->exteriorRing() )->pointN( 0 ), QgsPoint( 1, 2 ) );
+  QCOMPARE( polySurface.patchN( 0 )->wkbType(), Qgis::WkbType::Polygon );
+  QCOMPARE( static_cast< const QgsLineString *>( polySurface.patchN( 0 )->exteriorRing() )->pointN( 0 ), QgsPoint( 1, 2 ) );
 
   // with zm
   exteriorRing = new QgsLineString();
@@ -1365,13 +1368,13 @@ void TestQgsPolyhedralSurface::testDropMValue()
   polySurface.addPatch( patch.clone() );
 
   QCOMPARE( polySurface.wkbType(), Qgis::WkbType::PolyhedralSurfaceZM );
-  QCOMPARE( polySurface.patch( 0 )->wkbType(), Qgis::WkbType::PolygonZM );
-  QCOMPARE( static_cast< const QgsLineString *>( polySurface.patch( 0 )->exteriorRing() )->pointN( 0 ), QgsPoint( 1, 2, 3, 4 ) );
+  QCOMPARE( polySurface.patchN( 0 )->wkbType(), Qgis::WkbType::PolygonZM );
+  QCOMPARE( static_cast< const QgsLineString *>( polySurface.patchN( 0 )->exteriorRing() )->pointN( 0 ), QgsPoint( 1, 2, 3, 4 ) );
 
   polySurface.dropMValue();
   QCOMPARE( polySurface.wkbType(), Qgis::WkbType::PolyhedralSurfaceZ );
-  QCOMPARE( polySurface.patch( 0 )->wkbType(), Qgis::WkbType::PolygonZ );
-  QCOMPARE( static_cast< const QgsLineString *>( polySurface.patch( 0 )->exteriorRing() )->pointN( 0 ), QgsPoint( Qgis::WkbType::PointZ, 1, 2, 3 ) );
+  QCOMPARE( polySurface.patchN( 0 )->wkbType(), Qgis::WkbType::PolygonZ );
+  QCOMPARE( static_cast< const QgsLineString *>( polySurface.patchN( 0 )->exteriorRing() )->pointN( 0 ), QgsPoint( Qgis::WkbType::PointZ, 1, 2, 3 ) );
 }
 
 void TestQgsPolyhedralSurface::testCoordinateSequence()
@@ -1561,7 +1564,7 @@ void TestQgsPolyhedralSurface::testWKT()
   // bad WKT
   QVERIFY( !polySurface2.fromWkt( "Point()" ) );
   QVERIFY( polySurface2.isEmpty() );
-  QVERIFY( !polySurface2.patch( 0 ) );
+  QVERIFY( !polySurface2.patchN( 0 ) );
   QCOMPARE( polySurface2.numPatches(), 0 );
   QVERIFY( !polySurface2.is3D() );
   QVERIFY( !polySurface2.isMeasure() );
