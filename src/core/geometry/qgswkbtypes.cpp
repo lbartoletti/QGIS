@@ -83,10 +83,10 @@ Q_GLOBAL_STATIC_WITH_ARGS( WkbEntries, sWkbEntries, (
   { Qgis::WkbType::PolygonZM, WkbEntry( QLatin1String( "PolygonZM" ), false, Qgis::WkbType::MultiPolygonZM, Qgis::WkbType::PolygonZM, Qgis::WkbType::Polygon, Qgis::GeometryType::Polygon, true, true ) },
   { Qgis::WkbType::Polygon25D, WkbEntry( QLatin1String( "Polygon25D" ), false, Qgis::WkbType::MultiPolygon25D, Qgis::WkbType::Polygon25D, Qgis::WkbType::Polygon, Qgis::GeometryType::Polygon, true, false ) },
   //triangle
-  { Qgis::WkbType::Triangle, WkbEntry( QLatin1String( "Triangle" ), false, Qgis::WkbType::Unknown, Qgis::WkbType::Triangle, Qgis::WkbType::Triangle, Qgis::GeometryType::Polygon, false, false ) },
-  { Qgis::WkbType::TriangleZ, WkbEntry( QLatin1String( "TriangleZ" ), false, Qgis::WkbType::Unknown, Qgis::WkbType::TriangleZ, Qgis::WkbType::Triangle, Qgis::GeometryType::Polygon, true, false ) },
-  { Qgis::WkbType::TriangleM, WkbEntry( QLatin1String( "TriangleM" ), false, Qgis::WkbType::Unknown, Qgis::WkbType::TriangleM, Qgis::WkbType::Triangle, Qgis::GeometryType::Polygon, false, true ) },
-  { Qgis::WkbType::TriangleZM, WkbEntry( QLatin1String( "TriangleZM" ), false, Qgis::WkbType::Unknown, Qgis::WkbType::TriangleZM, Qgis::WkbType::Triangle, Qgis::GeometryType::Polygon, true, true ) },
+  { Qgis::WkbType::Triangle, WkbEntry( QLatin1String( "Triangle" ), false, Qgis::WkbType::TIN, Qgis::WkbType::Triangle, Qgis::WkbType::Triangle, Qgis::GeometryType::Polygon, false, false ) },
+  { Qgis::WkbType::TriangleZ, WkbEntry( QLatin1String( "TriangleZ" ), false, Qgis::WkbType::TINZ, Qgis::WkbType::TriangleZ, Qgis::WkbType::Triangle, Qgis::GeometryType::Polygon, true, false ) },
+  { Qgis::WkbType::TriangleM, WkbEntry( QLatin1String( "TriangleM" ), false, Qgis::WkbType::TINM, Qgis::WkbType::TriangleM, Qgis::WkbType::Triangle, Qgis::GeometryType::Polygon, false, true ) },
+  { Qgis::WkbType::TriangleZM, WkbEntry( QLatin1String( "TriangleZM" ), false, Qgis::WkbType::TINZM, Qgis::WkbType::TriangleZM, Qgis::WkbType::Triangle, Qgis::GeometryType::Polygon, true, true ) },
   //curvepolygon
   { Qgis::WkbType::CurvePolygon, WkbEntry( QLatin1String( "CurvePolygon" ), false, Qgis::WkbType::MultiSurface, Qgis::WkbType::CurvePolygon, Qgis::WkbType::CurvePolygon, Qgis::GeometryType::Polygon, false, false ) },
   { Qgis::WkbType::CurvePolygonZ, WkbEntry( QLatin1String( "CurvePolygonZ" ), false, Qgis::WkbType::MultiSurfaceZ, Qgis::WkbType::CurvePolygonZ, Qgis::WkbType::CurvePolygon, Qgis::GeometryType::Polygon, true, false ) },

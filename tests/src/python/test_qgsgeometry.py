@@ -2441,7 +2441,7 @@ class TestQgsGeometry(QgisTestCase):
         geometries = [QgsGeometry(QgsTriangle(QgsPoint(0, 0, 5), QgsPoint(1, 0, 6), QgsPoint(1, 1, 7))),
                       QgsGeometry(QgsTriangle(QgsPoint(100, 100, 9), QgsPoint(101, 100, -1), QgsPoint(101, 101, 4)))]
         geometry = QgsGeometry.collectGeometry(geometries)
-        expwkt = "MultiPolygonZ (((0 0 5, 1 0 6, 1 1 7, 0 0 5)),((100 100 9, 101 100 -1, 101 101 4, 100 100 9)))"
+        expwkt = "TINZ (((0 0 5, 1 0 6, 1 1 7, 0 0 5)),((100 100 9, 101 100 -1, 101 101 4, 100 100 9)))"
         wkt = geometry.asWkt()
         assert compareWkt(expwkt, wkt), f"Expected:\n{expwkt}\nGot:\n{wkt}\n"
 
@@ -3633,11 +3633,10 @@ class TestQgsGeometry(QgisTestCase):
         self.assertEqual(QgsWkbTypes.multiType(QgsWkbTypes.Type.MultiPoint25D), QgsWkbTypes.Type.MultiPoint25D)
         self.assertEqual(QgsWkbTypes.multiType(QgsWkbTypes.Type.MultiLineString25D), QgsWkbTypes.Type.MultiLineString25D)
         self.assertEqual(QgsWkbTypes.multiType(QgsWkbTypes.Type.MultiPolygon25D), QgsWkbTypes.Type.MultiPolygon25D)
-        # until we have tin types, these should return multipolygons
-        self.assertEqual(QgsWkbTypes.multiType(QgsWkbTypes.Type.Triangle), QgsWkbTypes.Type.MultiPolygon)
-        self.assertEqual(QgsWkbTypes.multiType(QgsWkbTypes.Type.TriangleZ), QgsWkbTypes.Type.MultiPolygonZ)
-        self.assertEqual(QgsWkbTypes.multiType(QgsWkbTypes.Type.TriangleM), QgsWkbTypes.Type.MultiPolygonM)
-        self.assertEqual(QgsWkbTypes.multiType(QgsWkbTypes.Type.TriangleZM), QgsWkbTypes.Type.MultiPolygonZM)
+        self.assertEqual(QgsWkbTypes.multiType(QgsWkbTypes.Type.Triangle), QgsWkbTypes.Type.TIN)
+        self.assertEqual(QgsWkbTypes.multiType(QgsWkbTypes.Type.TriangleZ), QgsWkbTypes.Type.TINZ)
+        self.assertEqual(QgsWkbTypes.multiType(QgsWkbTypes.Type.TriangleM), QgsWkbTypes.Type.TINM)
+        self.assertEqual(QgsWkbTypes.multiType(QgsWkbTypes.Type.TriangleZM), QgsWkbTypes.Type.TINZM)
         self.assertEqual(QgsWkbTypes.multiType(QgsWkbTypes.Type.PolyhedralSurface), QgsWkbTypes.Type.PolyhedralSurface)
         self.assertEqual(QgsWkbTypes.multiType(QgsWkbTypes.Type.PolyhedralSurfaceZ), QgsWkbTypes.Type.PolyhedralSurfaceZ)
         self.assertEqual(QgsWkbTypes.multiType(QgsWkbTypes.Type.PolyhedralSurfaceM), QgsWkbTypes.Type.PolyhedralSurfaceM)
@@ -3704,11 +3703,10 @@ class TestQgsGeometry(QgisTestCase):
         self.assertEqual(QgsWkbTypes.promoteNonPointTypesToMulti(QgsWkbTypes.Type.MultiPoint25D), QgsWkbTypes.Type.MultiPoint25D)
         self.assertEqual(QgsWkbTypes.promoteNonPointTypesToMulti(QgsWkbTypes.Type.MultiLineString25D), QgsWkbTypes.Type.MultiLineString25D)
         self.assertEqual(QgsWkbTypes.promoteNonPointTypesToMulti(QgsWkbTypes.Type.MultiPolygon25D), QgsWkbTypes.Type.MultiPolygon25D)
-        # until we have tin types, these should return multipolygons
-        self.assertEqual(QgsWkbTypes.promoteNonPointTypesToMulti(QgsWkbTypes.Type.Triangle), QgsWkbTypes.Type.MultiPolygon)
-        self.assertEqual(QgsWkbTypes.promoteNonPointTypesToMulti(QgsWkbTypes.Type.TriangleZ), QgsWkbTypes.Type.MultiPolygonZ)
-        self.assertEqual(QgsWkbTypes.promoteNonPointTypesToMulti(QgsWkbTypes.Type.TriangleM), QgsWkbTypes.Type.MultiPolygonM)
-        self.assertEqual(QgsWkbTypes.promoteNonPointTypesToMulti(QgsWkbTypes.Type.TriangleZM), QgsWkbTypes.Type.MultiPolygonZM)
+        self.assertEqual(QgsWkbTypes.promoteNonPointTypesToMulti(QgsWkbTypes.Type.Triangle), QgsWkbTypes.Type.TIN)
+        self.assertEqual(QgsWkbTypes.promoteNonPointTypesToMulti(QgsWkbTypes.Type.TriangleZ), QgsWkbTypes.Type.TINZ)
+        self.assertEqual(QgsWkbTypes.promoteNonPointTypesToMulti(QgsWkbTypes.Type.TriangleM), QgsWkbTypes.Type.TINM)
+        self.assertEqual(QgsWkbTypes.promoteNonPointTypesToMulti(QgsWkbTypes.Type.TriangleZM), QgsWkbTypes.Type.TINZM)
         self.assertEqual(QgsWkbTypes.promoteNonPointTypesToMulti(QgsWkbTypes.Type.PolyhedralSurface), QgsWkbTypes.Type.PolyhedralSurface)
         self.assertEqual(QgsWkbTypes.promoteNonPointTypesToMulti(QgsWkbTypes.Type.PolyhedralSurfaceZ), QgsWkbTypes.Type.PolyhedralSurfaceZ)
         self.assertEqual(QgsWkbTypes.promoteNonPointTypesToMulti(QgsWkbTypes.Type.PolyhedralSurfaceM), QgsWkbTypes.Type.PolyhedralSurfaceM)

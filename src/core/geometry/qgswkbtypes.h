@@ -208,18 +208,17 @@ class CORE_EXPORT QgsWkbTypes
         case Qgis::WkbType::Unknown:
           return Qgis::WkbType::Unknown;
 
-        // until we support TIN types, use multipolygon
         case Qgis::WkbType::Triangle:
-          return Qgis::WkbType::MultiPolygon;
+          return Qgis::WkbType::TIN;
 
         case Qgis::WkbType::TriangleZ:
-          return Qgis::WkbType::MultiPolygonZ;
+          return Qgis::WkbType::TINZ;
 
         case Qgis::WkbType::TriangleM:
-          return Qgis::WkbType::MultiPolygonM;
+          return Qgis::WkbType::TINM;
 
         case Qgis::WkbType::TriangleZM:
-          return Qgis::WkbType::MultiPolygonZM;
+          return Qgis::WkbType::TINZM;
 
         case Qgis::WkbType::GeometryCollection:
           return Qgis::WkbType::GeometryCollection;

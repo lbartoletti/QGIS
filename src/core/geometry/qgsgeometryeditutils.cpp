@@ -20,6 +20,8 @@ email                : marco.hugentobler at sourcepole dot com
 #include "qgspolygon.h"
 #include "qgsgeometry.h"
 #include "qgsgeometryengine.h"
+#include "qgstriangle.h"
+#include "qgstriangulatedsurface.h"
 #include "qgsvectorlayer.h"
 #include "qgsgeometrycollection.h"
 #include <limits>
@@ -103,6 +105,20 @@ Qgis::GeometryOperationResult QgsGeometryEditUtils::addPart( QgsAbstractGeometry
   if ( !part )
   {
     return Qgis::GeometryOperationResult::InvalidInputGeometryType;
+  }
+
+  // TriangulatedSurface does not inherit from QgsGeometryCollection
+  if ( QgsWkbTypes::flatType( geom->wkbType() ) == Qgis::WkbType::TIN )
+  {
+    QgsTriangulatedSurface *triangulatedSurface = qgsgeometry_cast<QgsTriangulatedSurface *>( geom );
+    if ( triangulatedSurface )
+    {
+      QgsTriangle *triangle = qgsgeometry_cast<QgsTriangle *>( part.get() );
+      if ( triangle )
+      {
+        triangulatedSurface->addPatch( triangle );
+      }
+    }
   }
 
   //multitype?

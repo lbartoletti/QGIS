@@ -35,6 +35,7 @@ email                : morb at ozemail dot com dot au
 #include "qgspolyhedralsurface.h"
 #include "qgsrectangle.h"
 
+#include "qgstriangulatedsurface.h"
 #include "qgsvectorlayer.h"
 #include "qgsgeometryvalidator.h"
 
@@ -1046,8 +1047,10 @@ Qgis::GeometryOperationResult QgsGeometry::addPartV2( QgsAbstractGeometry *part,
         reset( std::make_unique< QgsMultiLineString >() );
         break;
       case Qgis::WkbType::Polygon:
-      case Qgis::WkbType::Triangle:
         reset( std::make_unique< QgsMultiPolygon >() );
+        break;
+      case Qgis::WkbType::Triangle:
+        reset( std::make_unique< QgsTriangulatedSurface >() );
         break;
       case Qgis::WkbType::CurvePolygon:
         reset( std::make_unique< QgsMultiSurface >() );
@@ -1864,6 +1867,17 @@ bool QgsGeometry::convertToMultiType()
 
   if ( isMultipart() ) //already multitype, no need to convert
   {
+    return true;
+  }
+
+  // TriangulatedSurface does not inherit from QgsGeometryCollection
+  if ( QgsWkbTypes::flatType( d->geometry->wkbType() ) == Qgis::WkbType::Triangle )
+  {
+    std::unique_ptr< QgsTriangulatedSurface > triangulatedSurface = std::make_unique< QgsTriangulatedSurface >();
+    detach();
+    QgsPolygon *polygon = qgsgeometry_cast<QgsPolygon *>( d->geometry.release() );
+    triangulatedSurface->addPatch( polygon );
+    d->geometry = std::move( triangulatedSurface );
     return true;
   }
 
