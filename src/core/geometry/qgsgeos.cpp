@@ -1743,9 +1743,10 @@ geos::unique_ptr QgsGeos::asGeos( const QgsAbstractGeometry *geom, double precis
     ++coordDims;
   }
 
-  // PolyhedralSurface support
+  // PolyhedralSurface and TIN support
   // convert it to a geos MultiPolygon
-  if ( QgsWkbTypes::flatType( geom->wkbType() ) == Qgis::WkbType::PolyhedralSurface )
+  if ( QgsWkbTypes::flatType( geom->wkbType() ) == Qgis::WkbType::PolyhedralSurface ||
+       QgsWkbTypes::flatType( geom->wkbType() ) == Qgis::WkbType::TIN )
   {
     const QgsPolyhedralSurface *polyhedralSurface = qgsgeometry_cast<const QgsPolyhedralSurface *>( geom );
     if ( !polyhedralSurface )
