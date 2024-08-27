@@ -25,6 +25,7 @@ email                : marco.hugentobler at sourcepole dot com
 #include "qgslogger.h"
 #include "qgspolygon.h"
 #include "qgsgeometryeditutils.h"
+#include "qgspolyhedralsurface.h"
 #include <limits>
 #include <cstdio>
 
@@ -1742,7 +1743,29 @@ geos::unique_ptr QgsGeos::asGeos( const QgsAbstractGeometry *geom, double precis
     ++coordDims;
   }
 
-  if ( QgsWkbTypes::isMultiType( geom->wkbType() )  || QgsWkbTypes::flatType( geom->wkbType() ) == Qgis::WkbType::GeometryCollection )
+  // PolyhedralSurface support
+  // convert it to a geos MultiPolygon
+  if ( QgsWkbTypes::flatType( geom->wkbType() ) == Qgis::WkbType::PolyhedralSurface )
+  {
+    const QgsPolyhedralSurface *polyhedralSurface = qgsgeometry_cast<const QgsPolyhedralSurface *>( geom );
+    if ( !polyhedralSurface )
+      return nullptr;
+
+    std::vector<geos::unique_ptr> geomVector;
+    geomVector.reserve( polyhedralSurface->numPatches() );
+    for ( int i = 0; i < polyhedralSurface->numPatches(); ++i )
+    {
+      geos::unique_ptr geosPolygon = createGeosPolygon( polyhedralSurface->patchN( i ), precision );
+      if ( !allowInvalidSubGeom && !geosPolygon )
+      {
+        return nullptr;
+      }
+      geomVector.emplace_back( std::move( geosPolygon ) );
+    }
+
+    return createGeosCollection( GEOS_MULTIPOLYGON, geomVector );
+  }
+  else if ( QgsWkbTypes::isMultiType( geom->wkbType() )  || QgsWkbTypes::flatType( geom->wkbType() ) == Qgis::WkbType::GeometryCollection )
   {
     int geosType = GEOS_GEOMETRYCOLLECTION;
 
