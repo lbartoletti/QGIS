@@ -1772,6 +1772,23 @@ QVector<QgsGeometry> QgsGeometry::coerceToType( const Qgis::WkbType type, double
     newGeom = QgsGeometry( std::move( mp ) );
   }
 
+  //(Multi)Polygon to PolyhedralSurface
+  if ( QgsWkbTypes::flatType( type ) == Qgis::WkbType::PolyhedralSurface &&
+       QgsWkbTypes::flatType( QgsWkbTypes::singleType( newGeom.wkbType() ) ) == Qgis::WkbType::Polygon )
+  {
+    std::unique_ptr< QgsPolyhedralSurface > polySurface = std::make_unique< QgsPolyhedralSurface >();
+    const QgsGeometry source = newGeom;
+    for ( auto part = source.const_parts_begin(); part != source.const_parts_end(); ++part )
+    {
+      std::unique_ptr< QgsAbstractGeometry > partAbstractGeometry( ( *part )->clone() );
+      if ( QgsPolygon *polygon = qgsgeometry_cast< QgsPolygon * >( partAbstractGeometry.get() ) )
+      {
+        polySurface->addPatch( polygon->clone() );
+      }
+    }
+    newGeom = QgsGeometry( std::move( polySurface ) );
+  }
+
   // Single -> multi
   if ( QgsWkbTypes::isMultiType( type ) && ! newGeom.isMultipart( ) )
   {
