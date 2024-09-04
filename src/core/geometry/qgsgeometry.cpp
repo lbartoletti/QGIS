@@ -17,11 +17,13 @@ email                : morb at ozemail dot com dot au
 #include <cstdarg>
 #include <cstdio>
 #include <cmath>
+#include <memory>
 #include <nlohmann/json.hpp>
 #include <QCache>
 
 #include "qgis.h"
 #include "qgsgeometry.h"
+#include "qgsabstractgeometry.h"
 #include "qgsgeometryeditutils.h"
 #include "qgsgeometryfactory.h"
 
@@ -47,6 +49,7 @@ email                : morb at ozemail dot com dot au
 #include "qgslinestring.h"
 #include "qgscircle.h"
 #include "qgscurve.h"
+#include "qgstriangle.h"
 
 struct QgsGeometryPrivate
 {
@@ -1792,6 +1795,20 @@ QVector<QgsGeometry> QgsGeometry::coerceToType( const Qgis::WkbType type, double
     }
     newGeom = QgsGeometry( std::move( polySurface ) );
   }
+
+  // Polygon -> Triangle
+  if ( QgsWkbTypes::flatType( type ) == Qgis::WkbType::Triangle &&
+       QgsWkbTypes::flatType( newGeom.wkbType() ) == Qgis::WkbType::Polygon )
+  {
+    std::unique_ptr< QgsTriangle > triangle = std::make_unique< QgsTriangle >();
+    const QgsGeometry source = newGeom;
+    if ( QgsPolygon *polygon = qgsgeometry_cast< QgsPolygon * >( newGeom.constGet()->clone() ) )
+    {
+      triangle->setExteriorRing( polygon->exteriorRing() );
+    }
+    newGeom = QgsGeometry( std::move( triangle ) );
+  }
+
 
   // Single -> multi
   if ( QgsWkbTypes::isMultiType( type ) && ! newGeom.isMultipart( ) )
@@ -4506,3 +4523,4 @@ bool QgsGeometry::Error::hasWhere() const
 {
   return mHasLocation;
 }
+
