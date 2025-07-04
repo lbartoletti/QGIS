@@ -24,6 +24,12 @@ vertex only.
 %End
   public:
 
+    QgsLineSegment2D( ) /HoldGIL/;
+%Docstring
+Constructor for a QgsLineSegment2D from the specified ``start`` point to
+the ``end`` point.
+%End
+
     QgsLineSegment2D( const QgsPointXY &start, const QgsPointXY &end ) /HoldGIL/;
 %Docstring
 Constructor for a QgsLineSegment2D from the specified ``start`` point to

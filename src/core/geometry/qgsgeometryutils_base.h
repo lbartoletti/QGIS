@@ -558,4 +558,179 @@ class CORE_EXPORT QgsGeometryUtilsBase
     }
 #endif
 
+    /**
+    * Calculates the parameter t (0-1) of a point along a line segment.
+    *
+    * This method determines where a point lies along a line segment, returning
+    * a parameter value where 0 corresponds to the segment start and 1 to the segment end.
+    * Values outside [0,1] indicate the point lies on the extended line beyond the segment.
+    *
+    * \param segStartX x-coordinate of segment start point
+    * \param segStartY y-coordinate of segment start point
+    * \param segEndX x-coordinate of segment end point
+    * \param segEndY y-coordinate of segment end point
+    * \param pointX x-coordinate of the point to parametrize
+    * \param pointY y-coordinate of the point to parametrize
+    * \param epsilon tolerance for degenerate segment detection
+    * \returns parameter t along the segment (0.0 for degenerate segments)
+    *
+    * \since QGIS 3.40
+    */
+    static double parameterOnSegment( double segStartX, double segStartY, double segEndX, double segEndY,
+                                      double pointX, double pointY, double epsilon = 1e-8 ) SIP_HOLDGIL;
+
+    /**
+     * Determines if an intersection point lies inside the bounds of a line segment.
+     *
+     * This method checks whether the intersection point is geometrically contained
+     * within the segment bounds (parameter t between 0 and 1), providing a robust
+     * test for segment interior containment.
+     *
+     * \param segStartX x-coordinate of segment start point
+     * \param segStartY y-coordinate of segment start point
+     * \param segEndX x-coordinate of segment end point
+     * \param segEndY y-coordinate of segment end point
+     * \param intersectionX x-coordinate of intersection point to test
+     * \param intersectionY y-coordinate of intersection point to test
+     * \param epsilon tolerance for numerical comparisons
+     * \returns TRUE if intersection point is inside segment bounds
+     *
+     * \since QGIS 3.40
+     */
+    static bool isIntersectionInsideSegment( double segStartX, double segStartY, double segEndX, double segEndY,
+        double intersectionX, double intersectionY, double epsilon = 1e-8 ) SIP_HOLDGIL;
+
+    /**
+     * Calculates the appropriate offset direction for chamfer/fillet operations.
+     *
+     * This method determines the direction vector for offsetting from an intersection point
+     * along a segment, taking into account whether the intersection lies inside or outside
+     * the segment bounds. The logic ensures consistent behavior for fillet operations.
+     *
+     * \param segStartX x-coordinate of segment start point
+     * \param segStartY y-coordinate of segment start point
+     * \param segEndX x-coordinate of segment end point
+     * \param segEndY y-coordinate of segment end point
+     * \param intersectionX x-coordinate of intersection point
+     * \param intersectionY y-coordinate of intersection point
+     * \param reverseDirection if TRUE, reverses the calculated direction
+     * \param epsilon tolerance for numerical comparisons
+     * \returns normalized direction vector for offset calculation
+     *
+     * \since QGIS 3.40
+     */
+    static QgsVector calculateOffsetDirection( double segStartX, double segStartY, double segEndX, double segEndY,
+        double intersectionX, double intersectionY, bool reverseDirection = false,
+        double epsilon = 1e-8 ) SIP_HOLDGIL;
+
+    /**
+     * Calculates the appropriate direction for chamfer operations.
+     *
+     * This method determines the direction vector for chamfer offsetting based on the
+     * intersection parameter position along the segment. If the intersection is near
+     * the segment start (t < 0.5), it moves forward; if near the end (t >= 0.5),
+     * it moves backward along the segment.
+     *
+     * \param segStartX x-coordinate of segment start point
+     * \param segStartY y-coordinate of segment start point
+     * \param segEndX x-coordinate of segment end point
+     * \param segEndY y-coordinate of segment end point
+     * \param intersectionX x-coordinate of intersection point
+     * \param intersectionY y-coordinate of intersection point
+     * \param epsilon tolerance for numerical comparisons
+     * \returns normalized direction vector for chamfer calculation
+     *
+     * \since QGIS 3.40
+     */
+    static QgsVector calculateChamferDirection( double segStartX, double segStartY, double segEndX, double segEndY,
+        double intersectionX, double intersectionY, double epsilon = 1e-8 ) SIP_HOLDGIL;
+
+    /**
+     * Creates a chamfer (angled corner) between two line segments.
+     *
+     * This method generates a straight-line chamfer connecting two line segments at their
+     * intersection point. The chamfer distances can be specified independently for each
+     * segment, allowing for both symmetric and asymmetric chamfers.
+     *
+     * \param seg1StartX x-coordinate of first segment start point
+     * \param seg1StartY y-coordinate of first segment start point
+     * \param seg1EndX x-coordinate of first segment end point
+     * \param seg1EndY y-coordinate of first segment end point
+     * \param seg2StartX x-coordinate of second segment start point
+     * \param seg2StartY y-coordinate of second segment start point
+     * \param seg2EndX x-coordinate of second segment end point
+     * \param seg2EndY y-coordinate of second segment end point
+     * \param distance1 chamfer distance along first segment
+     * \param distance2 chamfer distance along second segment (if < 0, uses distance1)
+     * \param chamferStartX output x-coordinate of chamfer start point
+     * \param chamferStartY output y-coordinate of chamfer start point
+     * \param chamferEndX output x-coordinate of chamfer end point
+     * \param chamferEndY output y-coordinate of chamfer end point
+     * \param trim1StartX optional output x-coordinate of trimmed first segment start
+     * \param trim1StartY optional output y-coordinate of trimmed first segment start
+     * \param trim1EndX optional output x-coordinate of trimmed first segment end
+     * \param trim1EndY optional output y-coordinate of trimmed first segment end
+     * \param trim2StartX optional output x-coordinate of trimmed second segment start
+     * \param trim2StartY optional output y-coordinate of trimmed second segment start
+     * \param trim2EndX optional output x-coordinate of trimmed second segment end
+     * \param trim2EndY optional output y-coordinate of trimmed second segment end
+     * \param epsilon tolerance for numerical comparisons and intersection detection
+     * \returns TRUE if chamfer was successfully created
+     *
+     * \since QGIS 3.40
+     */
+    static bool createChamfer( double seg1StartX, double seg1StartY, double seg1EndX, double seg1EndY,
+                               double seg2StartX, double seg2StartY, double seg2EndX, double seg2EndY,
+                               double distance1, double distance2,
+                               double &chamferStartX SIP_OUT, double &chamferStartY SIP_OUT,
+                               double &chamferEndX SIP_OUT, double &chamferEndY SIP_OUT,
+                               double *trim1StartX = nullptr, double *trim1StartY = nullptr,
+                               double *trim1EndX = nullptr, double *trim1EndY = nullptr,
+                               double *trim2StartX = nullptr, double *trim2StartY = nullptr,
+                               double *trim2EndX = nullptr, double *trim2EndY = nullptr,
+                               double epsilon = 1e-8 ) SIP_HOLDGIL;
+
+    /**
+     * Creates a fillet (rounded corner) between two line segments.
+     *
+     * This method generates a circular arc connecting two line segments at their
+     * intersection point. The fillet returns exactly 3 points defining a CircularString:
+     * start point, middle point, and end point of the arc.
+     *
+     * \param seg1StartX x-coordinate of first segment start point
+     * \param seg1StartY y-coordinate of first segment start point
+     * \param seg1EndX x-coordinate of first segment end point
+     * \param seg1EndY y-coordinate of first segment end point
+     * \param seg2StartX x-coordinate of second segment start point
+     * \param seg2StartY y-coordinate of second segment start point
+     * \param seg2EndX x-coordinate of second segment end point
+     * \param seg2EndY y-coordinate of second segment end point
+     * \param radius radius of the fillet arc
+     * \param filletPointsX output array of x-coordinates for 3 fillet points (start, middle, end)
+     * \param filletPointsY output array of y-coordinates for 3 fillet points (start, middle, end)
+     * \param trim1StartX optional output x-coordinate of trimmed first segment start
+     * \param trim1StartY optional output y-coordinate of trimmed first segment start
+     * \param trim1EndX optional output x-coordinate of trimmed first segment end
+     * \param trim1EndY optional output y-coordinate of trimmed first segment end
+     * \param trim2StartX optional output x-coordinate of trimmed second segment start
+     * \param trim2StartY optional output y-coordinate of trimmed second segment start
+     * \param trim2EndX optional output x-coordinate of trimmed second segment end
+     * \param trim2EndY optional output y-coordinate of trimmed second segment end
+     * \param epsilon tolerance for numerical comparisons and intersection detection
+     * \returns TRUE if fillet was successfully created
+     *
+     * \note The caller must ensure that filletPointsX and filletPointsY arrays are
+     *       large enough to hold exactly 3 points defining the CircularString arc.
+     *
+     * \since QGIS 3.40
+     */
+    static bool createFillet( double seg1StartX, double seg1StartY, double seg1EndX, double seg1EndY,
+                              double seg2StartX, double seg2StartY, double seg2EndX, double seg2EndY,
+                              double radius,
+                              double *filletPointsX, double *filletPointsY,
+                              double *trim1StartX = nullptr, double *trim1StartY = nullptr,
+                              double *trim1EndX = nullptr, double *trim1EndY = nullptr,
+                              double *trim2StartX = nullptr, double *trim2StartY = nullptr,
+                              double *trim2EndX = nullptr, double *trim2EndY = nullptr,
+                              double epsilon = 1e-8 ) SIP_HOLDGIL;
 };

@@ -35,6 +35,12 @@ try:
     QgsGeometryUtilsBase.segmentIntersection = staticmethod(QgsGeometryUtilsBase.segmentIntersection)
     QgsGeometryUtilsBase.project = staticmethod(QgsGeometryUtilsBase.project)
     QgsGeometryUtilsBase.azimuth = staticmethod(QgsGeometryUtilsBase.azimuth)
+    QgsGeometryUtilsBase.parameterOnSegment = staticmethod(QgsGeometryUtilsBase.parameterOnSegment)
+    QgsGeometryUtilsBase.isIntersectionInsideSegment = staticmethod(QgsGeometryUtilsBase.isIntersectionInsideSegment)
+    QgsGeometryUtilsBase.calculateOffsetDirection = staticmethod(QgsGeometryUtilsBase.calculateOffsetDirection)
+    QgsGeometryUtilsBase.calculateChamferDirection = staticmethod(QgsGeometryUtilsBase.calculateChamferDirection)
+    QgsGeometryUtilsBase.createChamfer = staticmethod(QgsGeometryUtilsBase.createChamfer)
+    QgsGeometryUtilsBase.createFillet = staticmethod(QgsGeometryUtilsBase.createFillet)
     QgsGeometryUtilsBase.__group__ = ['geometry']
 except (NameError, AttributeError):
     pass

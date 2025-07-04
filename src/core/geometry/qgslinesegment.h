@@ -37,6 +37,15 @@ class CORE_EXPORT QgsLineSegment2D
      * Constructor for a QgsLineSegment2D from the specified \a start point to
      * the \a end point.
      */
+    QgsLineSegment2D( ) SIP_HOLDGIL
+  : mStart( QgsPointXY() )
+    , mEnd( QgsPointXY() )
+    {}
+
+    /**
+     * Constructor for a QgsLineSegment2D from the specified \a start point to
+     * the \a end point.
+     */
     QgsLineSegment2D( const QgsPointXY &start, const QgsPointXY &end ) SIP_HOLDGIL
   : mStart( start )
     , mEnd( end )

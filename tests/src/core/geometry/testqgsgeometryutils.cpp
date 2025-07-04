@@ -20,6 +20,7 @@
 #include "qgsgeometry.h"
 #include "qgsgeometryutils.h"
 #include "qgslinestring.h"
+#include "qgslinesegment.h"
 #include "qgspolygon.h"
 #include "qgsmultipolygon.h"
 
@@ -93,6 +94,11 @@ class TestQgsGeometryUtils : public QObject
     void transferFirstMValueToPoint();
     void transferFirstZOrMValueToPoint_qgspointsequence();
     void transferFirstZOrMValueToPoint_qgsgeometry();
+    // Tests pour QgsGeometryUtilsBase (coordonnées brutes)
+    void testCreateChamferBase_data();
+    void testCreateChamferBase();
+    void testCreateFilletBase_data();
+    void testCreateFilletBase();
 };
 
 
@@ -1977,6 +1983,355 @@ void TestQgsGeometryUtils::transferFirstZOrMValueToPoint_qgsgeometry()
   QCOMPARE( ret, true );
   QCOMPARE( point.z(), 3.0 );
   QCOMPARE( point.m(), 5.0 );
+}
+
+void TestQgsGeometryUtils::testCreateChamferBase_data()
+{
+  QTest::addColumn<double>( "seg1StartX" );
+  QTest::addColumn<double>( "seg1StartY" );
+  QTest::addColumn<double>( "seg1EndX" );
+  QTest::addColumn<double>( "seg1EndY" );
+  QTest::addColumn<double>( "seg2StartX" );
+  QTest::addColumn<double>( "seg2StartY" );
+  QTest::addColumn<double>( "seg2EndX" );
+  QTest::addColumn<double>( "seg2EndY" );
+  QTest::addColumn<double>( "distance1" );
+  QTest::addColumn<double>( "distance2" );
+  QTest::addColumn<bool>( "expectedSuccess" );
+  QTest::addColumn<double>( "expectedChamferStartX" );
+  QTest::addColumn<double>( "expectedChamferStartY" );
+  QTest::addColumn<double>( "expectedChamferEndX" );
+  QTest::addColumn<double>( "expectedChamferEndY" );
+
+  // Test 1: Basic symmetric chamfer on right angle
+  QTest::newRow( "symmetric_right_angle" )
+    << 0.0 << 0.0 << 1.0 << 0.0 // seg1: horizontal from (0,0) to (1,0)
+    << 0.0 << 0.0 << 0.0 << 1.0 // seg2: vertical from (0,0) to (0,1)
+    << 0.1 << 0.1               // distances: 0.1 on both segments
+    << true                     // expected success
+    << 0.1 << 0.0               // chamfer start: 0.1 along seg1
+    << 0.0 << 0.1;              // chamfer end: 0.1 along seg2
+
+  // Test 2: Asymmetric chamfer with different distances
+  QTest::newRow( "asymmetric_chamfer" )
+    << 0.0 << 0.0 << 2.0 << 0.0 // seg1: longer horizontal segment
+    << 0.0 << 0.0 << 0.0 << 2.0 // seg2: longer vertical segment
+    << 0.3 << 0.2               // different distances: 0.3 and 0.2
+    << true
+    << 0.3 << 0.0  // 0.3 along seg1
+    << 0.0 << 0.2; // 0.2 along seg2
+
+  // Test 3: Symmetric chamfer using distance2 = -1 (should use distance1)
+  QTest::newRow( "symmetric_negative_distance2" )
+    << 0.0 << 0.0 << 1.5 << 0.0 // seg1: horizontal
+    << 0.0 << 0.0 << 0.0 << 1.5 // seg2: vertical
+    << 0.2 << -1.0              // distance2 = -1 means symmetric
+    << true
+    << 0.2 << 0.0 // distance1 used for both
+    << 0.0 << 0.2;
+
+  // Test 4: Connected segments (end-to-start connection)
+  QTest::newRow( "connected_segments" )
+    << 0.0 << 0.0 << 1.0 << 0.0 // seg1: horizontal
+    << 1.0 << 0.0 << 1.0 << 1.0 // seg2: vertical starting where seg1 ends
+    << 0.15 << 0.15
+    << true
+    << 0.85 << 0.0  // 0.15 back from intersection on seg1
+    << 1.0 << 0.15; // 0.15 forward from intersection on seg2
+
+  // Test 5: Large distance automatically clamped to segment length
+  QTest::newRow( "clamped_distance" )
+    << 0.0 << 0.0 << 0.5 << 0.0 // seg1: short segment (length 0.5)
+    << 0.0 << 0.0 << 0.0 << 0.3 // seg2: short segment (length 0.3)
+    << 1.0 << 1.0               // distances larger than segments
+    << true                     // should succeed with clamping
+    << 0.0 << 0.0               // clamped to intersection point
+    << 0.0 << 0.0;              // clamped to intersection point
+
+  // Test 6: 45-degree angle - CORRECTION des valeurs attendues
+  QTest::newRow( "45_degree_angle" )
+    << 0.0 << 0.0 << 1.0 << 0.0 // seg1: horizontal
+    << 1.0 << 0.0 << 2.0 << 1.0 // seg2: 45° diagonal
+    << 0.1 << 0.1
+    << true
+    << 0.9 << 0.0                                              // 0.1 back on horizontal
+    << 1.0 + 0.1 / std::sqrt( 2.0 ) << 0.1 / std::sqrt( 2.0 ); // 0.1 along diagonal
+
+  // Test 7: Parallel segments (should fail - no intersection)
+  QTest::newRow( "parallel_segments" )
+    << 0.0 << 0.0 << 1.0 << 0.0 // horizontal segment
+    << 0.0 << 1.0 << 1.0 << 1.0 // parallel horizontal segment
+    << 0.1 << 0.1
+    << false                     // expected failure
+    << 0.0 << 0.0 << 0.0 << 0.0; // values ignored for failed case
+
+  // Test 8: Zero distance (should fail)
+  QTest::newRow( "zero_distance" )
+    << 0.0 << 0.0 << 1.0 << 0.0
+    << 0.0 << 0.0 << 0.0 << 1.0
+    << 0.0 << 0.1 // distance1 = 0
+    << false      // expected failure
+    << 0.0 << 0.0 << 0.0 << 0.0;
+
+  // Test 9: Negative distance (should fail)
+  QTest::newRow( "negative_distance" )
+    << 0.0 << 0.0 << 1.0 << 0.0
+    << 0.0 << 0.0 << 0.0 << 1.0
+    << -0.1 << 0.1 // negative distance1
+    << false       // expected failure
+    << 0.0 << 0.0 << 0.0 << 0.0;
+
+  // Test 10: Degenerate segment (zero length)
+  QTest::newRow( "degenerate_segment" )
+    << 0.0 << 0.0 << 0.0 << 0.0 // seg1: zero length
+    << 0.0 << 0.0 << 0.0 << 1.0 // seg2: normal
+    << 0.1 << 0.1
+    << false // expected failure
+    << 0.0 << 0.0 << 0.0 << 0.0;
+}
+
+void TestQgsGeometryUtils::testCreateChamferBase()
+{
+  QFETCH( double, seg1StartX );
+  QFETCH( double, seg1StartY );
+  QFETCH( double, seg1EndX );
+  QFETCH( double, seg1EndY );
+  QFETCH( double, seg2StartX );
+  QFETCH( double, seg2StartY );
+  QFETCH( double, seg2EndX );
+  QFETCH( double, seg2EndY );
+  QFETCH( double, distance1 );
+  QFETCH( double, distance2 );
+  QFETCH( bool, expectedSuccess );
+  QFETCH( double, expectedChamferStartX );
+  QFETCH( double, expectedChamferStartY );
+  QFETCH( double, expectedChamferEndX );
+  QFETCH( double, expectedChamferEndY );
+
+  double chamferStartX = 0.0, chamferStartY = 0.0;
+  double chamferEndX = 0.0, chamferEndY = 0.0;
+  double trim1StartX, trim1StartY, trim1EndX, trim1EndY;
+  double trim2StartX, trim2StartY, trim2EndX, trim2EndY;
+
+  bool result = QgsGeometryUtilsBase::createChamfer(
+    seg1StartX, seg1StartY, seg1EndX, seg1EndY,
+    seg2StartX, seg2StartY, seg2EndX, seg2EndY,
+    distance1, distance2,
+    chamferStartX, chamferStartY, chamferEndX, chamferEndY,
+    &trim1StartX, &trim1StartY, &trim1EndX, &trim1EndY,
+    &trim2StartX, &trim2StartY, &trim2EndX, &trim2EndY
+  );
+
+  QCOMPARE( result, expectedSuccess );
+
+  if ( expectedSuccess )
+  {
+    const double tolerance = 1e-10;
+
+    // Check chamfer coordinates
+    QVERIFY2( qgsDoubleNear( chamferStartX, expectedChamferStartX, tolerance ), QString( "chamferStartX: expected %1, got %2" ).arg( expectedChamferStartX ).arg( chamferStartX ).toLatin1() );
+
+    QVERIFY2( qgsDoubleNear( chamferStartY, expectedChamferStartY, tolerance ), QString( "chamferStartY: expected %1, got %2" ).arg( expectedChamferStartY ).arg( chamferStartY ).toLatin1() );
+
+    QVERIFY2( qgsDoubleNear( chamferEndX, expectedChamferEndX, tolerance ), QString( "chamferEndX: expected %1, got %2" ).arg( expectedChamferEndX ).arg( chamferEndX ).toLatin1() );
+
+    QVERIFY2( qgsDoubleNear( chamferEndY, expectedChamferEndY, tolerance ), QString( "chamferEndY: expected %1, got %2" ).arg( expectedChamferEndY ).arg( chamferEndY ).toLatin1() );
+
+    // Verify geometric continuity
+    // Trimmed segment 1 should connect to chamfer start
+    QVERIFY2( qgsDoubleNear( trim1EndX, chamferStartX, tolerance ), "Trimmed segment 1 end should connect to chamfer start" );
+    QVERIFY2( qgsDoubleNear( trim1EndY, chamferStartY, tolerance ), "Trimmed segment 1 end should connect to chamfer start" );
+
+    // Trimmed segment 2 should connect to chamfer end
+    QVERIFY2( qgsDoubleNear( trim2EndX, chamferEndX, tolerance ), "Trimmed segment 2 end should connect to chamfer end" );
+    QVERIFY2( qgsDoubleNear( trim2EndY, chamferEndY, tolerance ), "Trimmed segment 2 end should connect to chamfer end" );
+
+    // Verify trimmed segments start at original segment starts
+    QVERIFY2( qgsDoubleNear( trim1StartX, seg1StartX, tolerance ), "Trimmed segment 1 should start at original segment 1 start" );
+    QVERIFY2( qgsDoubleNear( trim1StartY, seg1StartY, tolerance ), "Trimmed segment 1 should start at original segment 1 start" );
+
+    QVERIFY2( qgsDoubleNear( trim2StartX, seg2StartX, tolerance ), "Trimmed segment 2 should start at original segment 2 start" );
+    QVERIFY2( qgsDoubleNear( trim2StartY, seg2StartY, tolerance ), "Trimmed segment 2 should start at original segment 2 start" );
+
+    // Verify all coordinates are finite (not NaN or infinite)
+    QVERIFY2( std::isfinite( chamferStartX ) && std::isfinite( chamferStartY ), "Chamfer start coordinates should be finite" );
+    QVERIFY2( std::isfinite( chamferEndX ) && std::isfinite( chamferEndY ), "Chamfer end coordinates should be finite" );
+  }
+}
+
+void TestQgsGeometryUtils::testCreateFilletBase_data()
+{
+  QTest::addColumn<double>( "seg1StartX" );
+  QTest::addColumn<double>( "seg1StartY" );
+  QTest::addColumn<double>( "seg1EndX" );
+  QTest::addColumn<double>( "seg1EndY" );
+  QTest::addColumn<double>( "seg2StartX" );
+  QTest::addColumn<double>( "seg2StartY" );
+  QTest::addColumn<double>( "seg2EndX" );
+  QTest::addColumn<double>( "seg2EndY" );
+  QTest::addColumn<double>( "radius" );
+  QTest::addColumn<bool>( "expectedSuccess" );
+
+  // Test 1: Basic right angle fillet
+  QTest::newRow( "basic_right_angle" )
+    << 0.0 << 0.0 << 1.0 << 0.0 // seg1: horizontal
+    << 0.0 << 0.0 << 0.0 << 1.0 // seg2: vertical (90° angle)
+    << 0.2                      // radius
+    << true;                    // expected success
+
+  // Test 2: Detailed fillet with larger radius
+  QTest::newRow( "detailed_fillet" )
+    << 0.0 << 0.0 << 2.0 << 0.0 // seg1: longer horizontal
+    << 0.0 << 0.0 << 0.0 << 2.0 // seg2: longer vertical
+    << 0.5                      // larger radius
+    << true;
+
+  // Test 3: Connected segments (end-to-start)
+  QTest::newRow( "connected_segments" )
+    << 0.0 << 0.0 << 1.0 << 0.0 // seg1: horizontal
+    << 1.0 << 0.0 << 1.0 << 1.0 // seg2: vertical starting where seg1 ends
+    << 0.3
+    << true;
+
+  // Test 4: Large radius fillet
+  QTest::newRow( "large_radius_fillet" )
+    << 0.0 << 0.0 << 3.0 << 0.0 // seg1: horizontal
+    << 0.0 << 0.0 << 0.0 << 3.0 // seg2: vertical
+    << 0.8                      // large radius
+    << true;
+
+  // Test 5: Small radius fillet
+  QTest::newRow( "small_radius_fillet" )
+    << 0.0 << 0.0 << 1.0 << 0.0
+    << 0.0 << 0.0 << 0.0 << 1.0
+    << 0.1 // small radius
+    << true;
+
+  // Test 6: Parallel segments (should fail)
+  QTest::newRow( "parallel_segments" )
+    << 0.0 << 0.0 << 1.0 << 0.0 // horizontal
+    << 0.0 << 1.0 << 1.0 << 1.0 // parallel horizontal
+    << 0.2
+    << false; // expected failure
+
+  // Test 7: Zero radius (should fail)
+  QTest::newRow( "zero_radius" )
+    << 0.0 << 0.0 << 1.0 << 0.0
+    << 0.0 << 0.0 << 0.0 << 1.0
+    << 0.0 // zero radius
+    << false;
+
+  // Test 8: Negative radius (should fail)
+  QTest::newRow( "negative_radius" )
+    << 0.0 << 0.0 << 1.0 << 0.0
+    << 0.0 << 0.0 << 0.0 << 1.0
+    << -0.1 // negative radius
+    << false;
+
+  // Test 9: Degenerate segment (should fail)
+  QTest::newRow( "degenerate_segment" )
+    << 0.0 << 0.0 << 0.0 << 0.0 // zero length segment
+    << 0.0 << 0.0 << 0.0 << 1.0 // normal segment
+    << 0.2
+    << false;
+
+  // Test 10: 45-degree angle fillet
+  QTest::newRow( "45_degree_angle" )
+    << 0.0 << 0.0 << 1.0 << 0.0 // horizontal
+    << 1.0 << 0.0 << 2.0 << 1.0 // 45° diagonal
+    << 0.15
+    << true;
+
+  // Test 11: Radius too large for segments (should fail)
+  QTest::newRow( "radius_too_large" )
+    << 0.0 << 0.0 << 0.5 << 0.0 // short segment
+    << 0.0 << 0.0 << 0.0 << 0.5 // short segment
+    << 1.0                      // radius larger than segments can accommodate
+    << false;
+}
+
+void TestQgsGeometryUtils::testCreateFilletBase()
+{
+  QFETCH( double, seg1StartX );
+  QFETCH( double, seg1StartY );
+  QFETCH( double, seg1EndX );
+  QFETCH( double, seg1EndY );
+  QFETCH( double, seg2StartX );
+  QFETCH( double, seg2StartY );
+  QFETCH( double, seg2EndX );
+  QFETCH( double, seg2EndY );
+  QFETCH( double, radius );
+  QFETCH( bool, expectedSuccess );
+
+  // Prepare output arrays for exactly 3 points (CircularString)
+  double filletPointsX[3];
+  double filletPointsY[3];
+  double trim1StartX, trim1StartY, trim1EndX, trim1EndY;
+  double trim2StartX, trim2StartY, trim2EndX, trim2EndY;
+
+  bool result = QgsGeometryUtilsBase::createFillet(
+    seg1StartX, seg1StartY, seg1EndX, seg1EndY,
+    seg2StartX, seg2StartY, seg2EndX, seg2EndY,
+    radius,
+    filletPointsX, filletPointsY,
+    &trim1StartX, &trim1StartY, &trim1EndX, &trim1EndY,
+    &trim2StartX, &trim2StartY, &trim2EndX, &trim2EndY
+  );
+
+  QCOMPARE( result, expectedSuccess );
+
+  if ( expectedSuccess )
+  {
+    const double tolerance = 1e-9;
+
+    // Verify all fillet points are finite (not NaN or infinite)
+    for ( int i = 0; i < 3; ++i )
+    {
+      QVERIFY2( std::isfinite( filletPointsX[i] ), QString( "Fillet point %1 X coordinate should be finite" ).arg( i ).toLatin1() );
+      QVERIFY2( std::isfinite( filletPointsY[i] ), QString( "Fillet point %1 Y coordinate should be finite" ).arg( i ).toLatin1() );
+    }
+
+    // Verify geometric continuity
+    // Trimmed segment 1 should connect to first fillet point
+    QVERIFY2( qgsDoubleNear( trim1EndX, filletPointsX[0], tolerance ), QString( "Trim1 end (%1,%2) should connect to fillet start (%3,%4)" ).arg( trim1EndX ).arg( trim1EndY ).arg( filletPointsX[0] ).arg( filletPointsY[0] ).toLatin1() );
+    QVERIFY2( qgsDoubleNear( trim1EndY, filletPointsY[0], tolerance ), "Trimmed segment 1 end should connect to fillet start" );
+
+    // Trimmed segment 2 should connect to last fillet point
+    QVERIFY2( qgsDoubleNear( trim2EndX, filletPointsX[2], tolerance ), QString( "Trim2 end (%1,%2) should connect to fillet end (%3,%4)" ).arg( trim2EndX ).arg( trim2EndY ).arg( filletPointsX[2] ).arg( filletPointsY[2] ).toLatin1() );
+    QVERIFY2( qgsDoubleNear( trim2EndY, filletPointsY[2], tolerance ), "Trimmed segment 2 end should connect to fillet end" );
+
+    // Verify trimmed segments start at original segment starts
+    QVERIFY2( qgsDoubleNear( trim1StartX, seg1StartX, tolerance ), "Trimmed segment 1 should start at original segment 1 start" );
+    QVERIFY2( qgsDoubleNear( trim1StartY, seg1StartY, tolerance ), "Trimmed segment 1 should start at original segment 1 start" );
+
+    QVERIFY2( qgsDoubleNear( trim2StartX, seg2StartX, tolerance ), "Trimmed segment 2 should start at original segment 2 start" );
+    QVERIFY2( qgsDoubleNear( trim2StartY, seg2StartY, tolerance ), "Trimmed segment 2 should start at original segment 2 start" );
+
+    // Verify the three points form a valid circular arc
+    // Calculate center and radius from the three points
+    double centerX, centerY, calculatedRadius;
+    QgsGeometryUtilsBase::circleCenterRadius( filletPointsX[0], filletPointsY[0], filletPointsX[1], filletPointsY[1], filletPointsX[2], filletPointsY[2], calculatedRadius, centerX, centerY );
+
+    // Verify calculated radius matches expected radius
+    QVERIFY2( qgsDoubleNear( calculatedRadius, radius, tolerance * 10 ), QString( "Calculated radius %1 should match expected radius %2" ).arg( calculatedRadius ).arg( radius ).toLatin1() );
+
+    // Verify all three points are equidistant from center
+    double dist1 = QgsGeometryUtilsBase::distance2D( filletPointsX[0], filletPointsY[0], centerX, centerY );
+    double dist2 = QgsGeometryUtilsBase::distance2D( filletPointsX[1], filletPointsY[1], centerX, centerY );
+    double dist3 = QgsGeometryUtilsBase::distance2D( filletPointsX[2], filletPointsY[2], centerX, centerY );
+
+    QVERIFY2( qgsDoubleNear( dist1, radius, tolerance * 10 ), QString( "Point 1 distance %1 should equal radius %2" ).arg( dist1 ).arg( radius ).toLatin1() );
+    QVERIFY2( qgsDoubleNear( dist2, radius, tolerance * 10 ), QString( "Point 2 distance %1 should equal radius %2" ).arg( dist2 ).arg( radius ).toLatin1() );
+    QVERIFY2( qgsDoubleNear( dist3, radius, tolerance * 10 ), QString( "Point 3 distance %1 should equal radius %2" ).arg( dist3 ).arg( radius ).toLatin1() );
+
+    // Verify the arc is not degenerate (points are not collinear)
+    bool areCollinear = QgsGeometryUtilsBase::pointsAreCollinear(
+      filletPointsX[0], filletPointsY[0],
+      filletPointsX[1], filletPointsY[1],
+      filletPointsX[2], filletPointsY[2], tolerance
+    );
+    QVERIFY2( !areCollinear, "Fillet points should not be collinear (should form an arc)" );
+  }
 }
 
 QGSTEST_MAIN( TestQgsGeometryUtils )
