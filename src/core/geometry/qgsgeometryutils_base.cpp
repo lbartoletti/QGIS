@@ -926,7 +926,16 @@ bool QgsGeometryUtilsBase::createFillet( double seg1StartX, double seg1StartY, d
   const double tangentLength = radius / std::tan( angle / 2.0 );
 
   // Verify segments are long enough for the fillet
-  if ( tangentLength > length1 * 0.95 || tangentLength > length2 * 0.95 )
+  // Calculer les distances disponibles depuis l'intersection
+  const double distToStart1 = QgsGeometryUtilsBase::distance2D( intersectionX, intersectionY, seg1StartX, seg1StartY );
+  const double distToEnd1 = QgsGeometryUtilsBase::distance2D( intersectionX, intersectionY, seg1EndX, seg1EndY );
+  const double distToStart2 = QgsGeometryUtilsBase::distance2D( intersectionX, intersectionY, seg2StartX, seg2StartY );
+  const double distToEnd2 = QgsGeometryUtilsBase::distance2D( intersectionX, intersectionY, seg2EndX, seg2EndY );
+
+  const double maxDist1 = std::max( distToStart1, distToEnd1 );
+  const double maxDist2 = std::max( distToStart2, distToEnd2 );
+
+  if ( tangentLength > maxDist1 * 0.95 || tangentLength > maxDist2 * 0.95 )
     return false;
 
   // Check if intersection is inside segments
@@ -940,55 +949,94 @@ bool QgsGeometryUtilsBase::createFillet( double seg1StartX, double seg1StartY, d
 
   if ( intersection1Inside )
   {
+    // L'intersection est à l'intérieur du segment, aller vers l'arrière le long du segment
     tangent1Pos = QgsVector( intersectionX, intersectionY ) - unitVec1 * tangentLength;
   }
   else
   {
+    // L'intersection est à l'extérieur, aller vers l'avant le long du segment
     tangent1Pos = QgsVector( intersectionX, intersectionY ) + unitVec1 * tangentLength;
   }
 
   if ( intersection2Inside )
   {
+    // L'intersection est à l'intérieur du segment, aller vers l'arrière le long du segment
     tangent2Pos = QgsVector( intersectionX, intersectionY ) - unitVec2 * tangentLength;
   }
   else
   {
+    // L'intersection est à l'extérieur, aller vers l'avant le long du segment
     tangent2Pos = QgsVector( intersectionX, intersectionY ) + unitVec2 * tangentLength;
   }
 
   // Determine arc direction using cross product
   const double cross = unitVec1.x() * unitVec2.y() - unitVec1.y() * unitVec2.x();
 
-  // Calculate normal vector to first tangent
-  QgsVector normal1 = unitVec1.perpVector();
+  // Calculate normal vector to first tangent (perpendicular)
+  QgsVector normal1( -unitVec1.y(), unitVec1.x() );  // Perpendiculaire à gauche
 
-  // Adjust normal vector direction
+  // Adjust normal vector direction based on cross product
   if ( cross < 0 )
   {
-    normal1 = normal1 * ( -1.0 );
+    normal1 = normal1 * ( -1.0 );  // Inverser la direction
   }
 
   // Calculate arc center
-  const QgsVector centerPos = tangent1Pos + normal1 * radius;
+  QgsVector centerPos = tangent1Pos + normal1 * radius;
   double centerX = centerPos.x();
   double centerY = centerPos.y();
+
+  // Verify that both tangent points are at the correct distance from center
+  const double dist1 = QgsGeometryUtilsBase::distance2D( tangent1Pos.x(), tangent1Pos.y(), centerX, centerY );
+  const double dist2 = QgsGeometryUtilsBase::distance2D( tangent2Pos.x(), tangent2Pos.y(), centerX, centerY );
+
+  if ( std::abs( dist1 - radius ) > epsilon || std::abs( dist2 - radius ) > epsilon )
+  {
+    // Recalculate center using the midpoint of tangent points and geometric constraints
+    const QgsVector midpoint = ( tangent1Pos + tangent2Pos ) * 0.5;
+    const QgsVector tangentDiff = tangent2Pos - tangent1Pos;
+    const double tangentDist = tangentDiff.length();
+
+    if ( tangentDist < epsilon )
+      return false;
+
+    const QgsVector perpToTangentLine( -tangentDiff.y(), tangentDiff.x() );
+    const QgsVector perpUnit = perpToTangentLine.normalized();
+
+    // Distance from midpoint to center
+    const double midToCenter = std::sqrt( radius * radius - ( tangentDist * tangentDist ) / 4.0 );
+
+    // Choose direction based on cross product
+    const QgsVector centerOffset = perpUnit * midToCenter;
+    if ( cross < 0 )
+    {
+      centerPos = midpoint - centerOffset;
+    }
+    else
+    {
+      centerPos = midpoint + centerOffset;
+    }
+
+    centerX = centerPos.x();
+    centerY = centerPos.y();
+  }
 
   // Calculate arc angles
   double startAngle = std::atan2( tangent1Pos.y() - centerY, tangent1Pos.x() - centerX );
   double endAngle = std::atan2( tangent2Pos.y() - centerY, tangent2Pos.x() - centerX );
 
-  // Calculate angle difference considering rotation direction
+  // Ensure correct arc direction
   double angleDiff = endAngle - startAngle;
 
   if ( cross > 0 )
   {
-    if ( angleDiff <= -M_PI ) angleDiff += 2 * M_PI;
-    else if ( angleDiff > M_PI ) angleDiff -= 2 * M_PI;
+    // Arc counterclockwise
+    if ( angleDiff <= 0 ) angleDiff += 2 * M_PI;
   }
   else
   {
-    if ( angleDiff >= M_PI ) angleDiff -= 2 * M_PI;
-    else if ( angleDiff < -M_PI ) angleDiff += 2 * M_PI;
+    // Arc clockwise
+    if ( angleDiff >= 0 ) angleDiff -= 2 * M_PI;
   }
 
   // Generate the 3 arc points for CircularString (start, middle, end)
