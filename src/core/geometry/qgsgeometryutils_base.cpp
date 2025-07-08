@@ -785,288 +785,218 @@ QgsVector QgsGeometryUtilsBase::calculateChamferDirection( double segStartX, dou
   return ( t < 0.5 ) ? unitVector : unitVector * ( -1.0 );
 }
 
-bool QgsGeometryUtilsBase::createChamfer( double seg1StartX, double seg1StartY, double seg1EndX, double seg1EndY,
-    double seg2StartX, double seg2StartY, double seg2EndX, double seg2EndY,
-    double distance1, double distance2,
-    double &chamferStartX, double &chamferStartY,
-    double &chamferEndX, double &chamferEndY,
-    double *trim1StartX, double *trim1StartY,
-    double *trim1EndX, double *trim1EndY,
-    double *trim2StartX, double *trim2StartY,
-    double *trim2EndX, double *trim2EndY,
-    double epsilon )
+bool QgsGeometryUtilsBase::createChamfer(
+  double seg1StartX, double seg1StartY, double seg1EndX, double seg1EndY,
+  double seg2StartX, double seg2StartY, double seg2EndX, double seg2EndY,
+  double distance1, double distance2,
+  double &chamferStartX, double &chamferStartY,
+  double &chamferEndX, double &chamferEndY,
+  double *trim1StartX, double *trim1StartY,
+  double *trim1EndX, double *trim1EndY,
+  double *trim2StartX, double *trim2StartY,
+  double *trim2EndX, double *trim2EndY,
+  double epsilon )
 {
-  // Input validation
-  if ( distance1 <= 0 )
-    return false;
+  // Find intersection using QGIS proven algorithms
+  // Accept improper intersections (endpoint meetings) which are valid for chamfer/fillet
+  double intersectionX, intersectionY;
+  bool isIntersection;
+  QgsGeometryUtilsBase::segmentIntersection(
+    seg1StartX, seg1StartY, seg1EndX, seg1EndY,
+    seg2StartX, seg2StartY, seg2EndX, seg2EndY,
+    intersectionX, intersectionY, isIntersection, epsilon, true ); // acceptImproperIntersection = true
 
+  if ( !isIntersection )
+  {
+    return false; // No intersection found
+  }
+
+  // Apply symmetric distance if distance2 is negative
   if ( distance2 < 0 )
     distance2 = distance1;
-  else if ( distance2 <= 0 )
-    return false;
 
-  // Calculate segment lengths
-  const double length1 = QgsGeometryUtilsBase::distance2D( seg1StartX, seg1StartY, seg1EndX, seg1EndY );
-  const double length2 = QgsGeometryUtilsBase::distance2D( seg2StartX, seg2StartY, seg2EndX, seg2EndY );
+  // Use consistent orientation: place chamfer points along segments toward their starts
+  // This avoids the orientation confusion of vector-based approach
+  double T1x, T1y;
+  QgsGeometryUtilsBase::pointOnLineWithDistance(
+    intersectionX, intersectionY,
+    seg1StartX, seg1StartY,
+    distance1, T1x, T1y
+  );
 
-  // Check for degenerate segments
-  if ( length1 <= epsilon || length2 <= epsilon )
-    return false;
+  double T2x, T2y;
+  QgsGeometryUtilsBase::pointOnLineWithDistance(
+    intersectionX, intersectionY,
+    seg2StartX, seg2StartY,
+    distance2, T2x, T2y
+  );
 
-  // Find intersection point
-  double intersectionX = 0.0, intersectionY = 0.0;
-  bool isIntersection = false;
+  // Validate that chamfer points are within segment bounds
+  const double distToSeg1Start = QgsGeometryUtilsBase::distance2D(
+                                   intersectionX, intersectionY, seg1StartX, seg1StartY );
+  const double distToSeg2Start = QgsGeometryUtilsBase::distance2D(
+                                   intersectionX, intersectionY, seg2StartX, seg2StartY );
 
-  if ( !segmentIntersection( seg1StartX, seg1StartY, seg1EndX, seg1EndY,
-                             seg2StartX, seg2StartY, seg2EndX, seg2EndY,
-                             intersectionX, intersectionY, isIntersection, epsilon, true ) || !isIntersection )
-    return false;
-
-  // Calculate maximum available distances for clamping
-  const double t1 = parameterOnSegment( seg1StartX, seg1StartY, seg1EndX, seg1EndY, intersectionX, intersectionY, epsilon );
-  const double t2 = parameterOnSegment( seg2StartX, seg2StartY, seg2EndX, seg2EndY, intersectionX, intersectionY, epsilon );
-
-  double maxDist1 = ( t1 < 0.5 ) ? ( 1.0 - t1 ) * length1 : t1 * length1;
-  double maxDist2 = ( t2 < 0.5 ) ? ( 1.0 - t2 ) * length2 : t2 * length2;
-
-  double effectiveDistance1 = distance1;
-  double effectiveDistance2 = distance2;
-
-  // Intelligent clamping for excessive distances
-  if ( effectiveDistance1 > maxDist1 * 1.5 || effectiveDistance2 > maxDist2 * 1.5 )
+  // Clamp distances to available segment length if necessary
+  if ( distance1 > distToSeg1Start + epsilon )
   {
-    effectiveDistance1 = 0.0;
-    effectiveDistance2 = 0.0;
-  }
-  else if ( effectiveDistance1 > maxDist1 * 0.95 || effectiveDistance2 > maxDist2 * 0.95 )
-  {
-    effectiveDistance1 = std::min( effectiveDistance1, maxDist1 * 0.95 );
-    effectiveDistance2 = std::min( effectiveDistance2, maxDist2 * 0.95 );
+    QgsGeometryUtilsBase::pointOnLineWithDistance(
+      intersectionX, intersectionY,
+      seg1StartX, seg1StartY,
+      distToSeg1Start, T1x, T1y
+    );
   }
 
-  // Calculate chamfer directions using chamfer-specific logic
-  const QgsVector offset1Direction = calculateChamferDirection( seg1StartX, seg1StartY, seg1EndX, seg1EndY,
-                                     intersectionX, intersectionY, epsilon );
-  const QgsVector offset2Direction = calculateChamferDirection( seg2StartX, seg2StartY, seg2EndX, seg2EndY,
-                                     intersectionX, intersectionY, epsilon );
-
-  // Calculate chamfer points
-  const QgsVector chamfer1Offset = offset1Direction * effectiveDistance1;
-  const QgsVector chamfer2Offset = offset2Direction * effectiveDistance2;
-
-  chamferStartX = intersectionX + chamfer1Offset.x();
-  chamferStartY = intersectionY + chamfer1Offset.y();
-  chamferEndX = intersectionX + chamfer2Offset.x();
-  chamferEndY = intersectionY + chamfer2Offset.y();
-
-  // Calculate trimmed segments if requested
-  if ( trim1StartX && trim1StartY && trim1EndX && trim1EndY )
+  if ( distance2 > distToSeg2Start + epsilon )
   {
-    *trim1StartX = seg1StartX;
-    *trim1StartY = seg1StartY;
-    *trim1EndX = chamferStartX;
-    *trim1EndY = chamferStartY;
+    QgsGeometryUtilsBase::pointOnLineWithDistance(
+      intersectionX, intersectionY,
+      seg2StartX, seg2StartY,
+      distToSeg2Start, T2x, T2y
+    );
   }
 
-  if ( trim2StartX && trim2StartY && trim2EndX && trim2EndY )
+  chamferStartX = T1x;
+  chamferStartY = T1y;
+  chamferEndX = T2x;
+  chamferEndY = T2y;
+
+  // Generate trimmed segments if requested
+  if ( trim1StartX )
   {
-    *trim2StartX = seg2StartX;
-    *trim2StartY = seg2StartY;
-    *trim2EndX = chamferEndX;
-    *trim2EndY = chamferEndY;
+    *trim1StartX = seg1StartX; *trim1StartY = seg1StartY;
+    *trim1EndX = T1x; *trim1EndY = T1y;
+  }
+  if ( trim2StartX )
+  {
+    *trim2StartX = seg2StartX; *trim2StartY = seg2StartY;
+    *trim2EndX = T2x; *trim2EndY = T2y;
   }
 
   return true;
 }
 
-bool QgsGeometryUtilsBase::createFillet( double seg1StartX, double seg1StartY, double seg1EndX, double seg1EndY,
-    double seg2StartX, double seg2StartY, double seg2EndX, double seg2EndY,
-    double radius,
-    double *filletPointsX, double *filletPointsY,
-    double *trim1StartX, double *trim1StartY,
-    double *trim1EndX, double *trim1EndY,
-    double *trim2StartX, double *trim2StartY,
-    double *trim2EndX, double *trim2EndY,
-    double epsilon )
+bool QgsGeometryUtilsBase::createFillet(
+  double seg1StartX, double seg1StartY, double seg1EndX, double seg1EndY,
+  double seg2StartX, double seg2StartY, double seg2EndX, double seg2EndY,
+  double radius,
+  double *filletPointsX, double *filletPointsY,
+  double *trim1StartX, double *trim1StartY,
+  double *trim1EndX, double *trim1EndY,
+  double *trim2StartX, double *trim2StartY,
+  double *trim2EndX, double *trim2EndY,
+  double epsilon )
 {
-  // Input validation
-  if ( radius <= 0.0 )
-    return false;
+  // Find intersection using QGIS proven algorithms
+  // Accept improper intersections (endpoint meetings) which are valid for chamfer/fillet
+  double intersectionX, intersectionY;
+  bool isIntersection;
+  QgsGeometryUtilsBase::segmentIntersection(
+    seg1StartX, seg1StartY, seg1EndX, seg1EndY,
+    seg2StartX, seg2StartY, seg2EndX, seg2EndY,
+    intersectionX, intersectionY, isIntersection, epsilon, true ); // acceptImproperIntersection = true
 
-  // Calculate segment lengths
-  const double length1 = QgsGeometryUtilsBase::distance2D( seg1StartX, seg1StartY, seg1EndX, seg1EndY );
-  const double length2 = QgsGeometryUtilsBase::distance2D( seg2StartX, seg2StartY, seg2EndX, seg2EndY );
-
-  if ( length1 <= epsilon || length2 <= epsilon )
-    return false;
-
-  // Calculate intersection between segments
-  double intersectionX = 0.0, intersectionY = 0.0;
-  bool isIntersection = false;
-  if ( !segmentIntersection( seg1StartX, seg1StartY, seg1EndX, seg1EndY,
-                             seg2StartX, seg2StartY, seg2EndX, seg2EndY,
-                             intersectionX, intersectionY, isIntersection, epsilon, true ) || !isIntersection )
-    return false;
-
-  // Create and normalize directional vectors
-  const QgsVector seg1Vector( seg1EndX - seg1StartX, seg1EndY - seg1StartY );
-  const QgsVector seg2Vector( seg2EndX - seg2StartX, seg2EndY - seg2StartY );
-  const QgsVector unitVec1 = seg1Vector.normalized();
-  const QgsVector unitVec2 = seg2Vector.normalized();
-
-  // Calculate angle between segments
-  const double dot = unitVec1 * unitVec2;
-  const double angle = std::acos( std::clamp( dot, -1.0, 1.0 ) );
-
-  // Check for parallel or nearly parallel segments
-  if ( angle < epsilon || angle > M_PI - epsilon )
-    return false;
-
-  // Calculate tangent length along segments
-  const double tangentLength = radius / std::tan( angle / 2.0 );
-
-  // Verify segments are long enough for the fillet
-  // Calculer les distances disponibles depuis l'intersection
-  const double distToStart1 = QgsGeometryUtilsBase::distance2D( intersectionX, intersectionY, seg1StartX, seg1StartY );
-  const double distToEnd1 = QgsGeometryUtilsBase::distance2D( intersectionX, intersectionY, seg1EndX, seg1EndY );
-  const double distToStart2 = QgsGeometryUtilsBase::distance2D( intersectionX, intersectionY, seg2StartX, seg2StartY );
-  const double distToEnd2 = QgsGeometryUtilsBase::distance2D( intersectionX, intersectionY, seg2EndX, seg2EndY );
-
-  const double maxDist1 = std::max( distToStart1, distToEnd1 );
-  const double maxDist2 = std::max( distToStart2, distToEnd2 );
-
-  if ( tangentLength > maxDist1 * 0.95 || tangentLength > maxDist2 * 0.95 )
-    return false;
-
-  // Check if intersection is inside segments
-  const bool intersection1Inside = isIntersectionInsideSegment( seg1StartX, seg1StartY, seg1EndX, seg1EndY,
-                                   intersectionX, intersectionY, epsilon );
-  const bool intersection2Inside = isIntersectionInsideSegment( seg2StartX, seg2StartY, seg2EndX, seg2EndY,
-                                   intersectionX, intersectionY, epsilon );
-
-  // Calculate tangent points
-  QgsVector tangent1Pos, tangent2Pos;
-
-  if ( intersection1Inside )
+  if ( !isIntersection )
   {
-    // L'intersection est à l'intérieur du segment, aller vers l'arrière le long du segment
-    tangent1Pos = QgsVector( intersectionX, intersectionY ) - unitVec1 * tangentLength;
-  }
-  else
-  {
-    // L'intersection est à l'extérieur, aller vers l'avant le long du segment
-    tangent1Pos = QgsVector( intersectionX, intersectionY ) + unitVec1 * tangentLength;
+    return false; // No intersection found
   }
 
-  if ( intersection2Inside )
-  {
-    // L'intersection est à l'intérieur du segment, aller vers l'arrière le long du segment
-    tangent2Pos = QgsVector( intersectionX, intersectionY ) - unitVec2 * tangentLength;
-  }
-  else
-  {
-    // L'intersection est à l'extérieur, aller vers l'avant le long du segment
-    tangent2Pos = QgsVector( intersectionX, intersectionY ) + unitVec2 * tangentLength;
-  }
+  // Calculate angle using consistent orientation (both toward starts)
+  const double angle = QgsGeometryUtilsBase::angleBetweenThreePoints(
+                         seg1StartX, seg1StartY,
+                         intersectionX, intersectionY,
+                         seg2StartX, seg2StartY
+                       );
 
-  // Determine arc direction using cross product
-  const double cross = unitVec1.x() * unitVec2.y() - unitVec1.y() * unitVec2.x();
-
-  // Calculate normal vector to first tangent (perpendicular)
-  QgsVector normal1( -unitVec1.y(), unitVec1.x() );  // Perpendiculaire à gauche
-
-  // Adjust normal vector direction based on cross product
-  if ( cross < 0 )
+  // Validate angle for meaningful fillet - avoid angles too close to 0 or π
+  if ( std::abs( angle ) < epsilon || std::abs( angle - M_PI ) < epsilon )
   {
-    normal1 = normal1 * ( -1.0 );  // Inverser la direction
+    return false; // Invalid angle for fillet
   }
 
-  // Calculate arc center
-  QgsVector centerPos = tangent1Pos + normal1 * radius;
-  double centerX = centerPos.x();
-  double centerY = centerPos.y();
-
-  // Verify that both tangent points are at the correct distance from center
-  const double dist1 = QgsGeometryUtilsBase::distance2D( tangent1Pos.x(), tangent1Pos.y(), centerX, centerY );
-  const double dist2 = QgsGeometryUtilsBase::distance2D( tangent2Pos.x(), tangent2Pos.y(), centerX, centerY );
-
-  if ( std::abs( dist1 - radius ) > epsilon || std::abs( dist2 - radius ) > epsilon )
+  // Calculate tangent distance using the interior angle
+  // For fillet operations, we always use the smaller angle (≤ π)
+  double workingAngle = angle;
+  if ( workingAngle > M_PI )
   {
-    // Recalculate center using the midpoint of tangent points and geometric constraints
-    const QgsVector midpoint = ( tangent1Pos + tangent2Pos ) * 0.5;
-    const QgsVector tangentDiff = tangent2Pos - tangent1Pos;
-    const double tangentDist = tangentDiff.length();
-
-    if ( tangentDist < epsilon )
-      return false;
-
-    const QgsVector perpToTangentLine( -tangentDiff.y(), tangentDiff.x() );
-    const QgsVector perpUnit = perpToTangentLine.normalized();
-
-    // Distance from midpoint to center
-    const double midToCenter = std::sqrt( radius * radius - ( tangentDist * tangentDist ) / 4.0 );
-
-    // Choose direction based on cross product
-    const QgsVector centerOffset = perpUnit * midToCenter;
-    if ( cross < 0 )
-    {
-      centerPos = midpoint - centerOffset;
-    }
-    else
-    {
-      centerPos = midpoint + centerOffset;
-    }
-
-    centerX = centerPos.x();
-    centerY = centerPos.y();
+    workingAngle = 2 * M_PI - workingAngle;
   }
 
-  // Calculate arc angles
-  double startAngle = std::atan2( tangent1Pos.y() - centerY, tangent1Pos.x() - centerX );
-  double endAngle = std::atan2( tangent2Pos.y() - centerY, tangent2Pos.x() - centerX );
-
-  // Ensure correct arc direction
-  double angleDiff = endAngle - startAngle;
-
-  if ( cross > 0 )
+  const double halfAngle = workingAngle / 2.0;
+  if ( std::abs( std::sin( halfAngle ) ) < epsilon )
   {
-    // Arc counterclockwise
-    if ( angleDiff <= 0 ) angleDiff += 2 * M_PI;
-  }
-  else
-  {
-    // Arc clockwise
-    if ( angleDiff >= 0 ) angleDiff -= 2 * M_PI;
+    return false; // Avoid division by very small numbers
   }
 
-  // Generate the 3 arc points for CircularString (start, middle, end)
-  // Point 1: Start of arc (tangent point on first segment)
-  filletPointsX[0] = tangent1Pos.x();
-  filletPointsY[0] = tangent1Pos.y();
+  const double distanceToTangent = radius / std::tan( halfAngle );
 
-  // Point 2: Middle of arc (at half angle)
-  double middleAngle = startAngle + angleDiff / 2.0;
-  filletPointsX[1] = centerX + radius * std::cos( middleAngle );
-  filletPointsY[1] = centerY + radius * std::sin( middleAngle );
+  // Verify tangent points will fall within segment boundaries
+  const double distFromIntersectionToSeg1Start = QgsGeometryUtilsBase::distance2D(
+        intersectionX, intersectionY, seg1StartX, seg1StartY );
+  const double distFromIntersectionToSeg2Start = QgsGeometryUtilsBase::distance2D(
+        intersectionX, intersectionY, seg2StartX, seg2StartY );
 
-  // Point 3: End of arc (tangent point on second segment)
-  filletPointsX[2] = tangent2Pos.x();
-  filletPointsY[2] = tangent2Pos.y();
+  if ( distanceToTangent > distFromIntersectionToSeg1Start + epsilon ||
+       distanceToTangent > distFromIntersectionToSeg2Start + epsilon )
+  {
+    return false; // Radius too large for segments
+  }
 
-  // Update trimmed segments if requested
-  if ( trim1StartX && trim1StartY && trim1EndX && trim1EndY )
+  // Place tangent points using consistent orientation (both toward starts)
+  double T1x, T1y, T2x, T2y;
+  QgsGeometryUtilsBase::pointOnLineWithDistance(
+    intersectionX, intersectionY,
+    seg1StartX, seg1StartY,
+    distanceToTangent, T1x, T1y
+  );
+  QgsGeometryUtilsBase::pointOnLineWithDistance(
+    intersectionX, intersectionY,
+    seg2StartX, seg2StartY,
+    distanceToTangent, T2x, T2y
+  );
+
+  // Calculate circle center using angle bisector geometry
+  const QgsVector v1( seg1StartX - intersectionX, seg1StartY - intersectionY );
+  const QgsVector v2( seg2StartX - intersectionX, seg2StartY - intersectionY );
+
+  // The bisector direction is the normalized sum of the unit vectors
+  const QgsVector bisectorDirection = ( v1.normalized() + v2.normalized() ).normalized();
+
+  // Distance from intersection to circle center
+  const double centerDistance = radius / std::sin( halfAngle );
+  const double centerX = intersectionX + bisectorDirection.x() * centerDistance;
+  const double centerY = intersectionY + bisectorDirection.y() * centerDistance;
+
+  // Calculate arc midpoint - the point on the circle that bisects the arc
+  const QgsVector centerToT1 = QgsVector( T1x - centerX, T1y - centerY ).normalized();
+  const QgsVector centerToT2 = QgsVector( T2x - centerX, T2y - centerY ).normalized();
+  const QgsVector midDirection = ( centerToT1 + centerToT2 ).normalized();
+
+  const double midX = centerX + midDirection.x() * radius;
+  const double midY = centerY + midDirection.y() * radius;
+
+  // Return three-point arc representation
+  filletPointsX[0] = T1x;
+  filletPointsY[0] = T1y;
+  filletPointsX[1] = midX;
+  filletPointsY[1] = midY;
+  filletPointsX[2] = T2x;
+  filletPointsY[2] = T2y;
+
+  // Generate trimmed segments if requested
+  if ( trim1StartX )
   {
     *trim1StartX = seg1StartX;
     *trim1StartY = seg1StartY;
-    *trim1EndX = tangent1Pos.x();
-    *trim1EndY = tangent1Pos.y();
+    *trim1EndX = T1x;
+    *trim1EndY = T1y;
   }
-  if ( trim2StartX && trim2StartY && trim2EndX && trim2EndY )
+  if ( trim2StartX )
   {
     *trim2StartX = seg2StartX;
     *trim2StartY = seg2StartY;
-    *trim2EndX = tangent2Pos.x();
-    *trim2EndY = tangent2Pos.y();
+    *trim2EndX = T2x;
+    *trim2EndY = T2y;
   }
 
   return true;

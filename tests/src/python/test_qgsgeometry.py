@@ -14482,351 +14482,435 @@ class TestQgsGeometry(QgisTestCase):
             "GeometryCollection (Point (1 2),LineString (3 4, 5 6),Polygon ((0 0, 1 0, 1 1, 0 1, 0 0)))",
         )
 
-    def testFilletVertex(self):
-        """Test QgsGeometry.fillet() with vertex index"""
-        # Test basic fillet on LineString - right angle with radius 1.0
-        linestring = QgsGeometry.fromWkt("LineString(0 0, 5 0, 5 5)")
-        result = linestring.fillet(1, 1.0, 4)
-        self.assertFalse(result.isNull())
+    # ============================================================================
+    # CHAMFER TESTS - SEGMENT-BASED OVERLOAD
+    # ============================================================================
 
-        # Actual result shows tangent points at different positions
-        expected = "LineString (0 0, 6 0, 5.62 0.08, 5.29 0.29, 5.08 0.62, 5 1, 5 5)"
-        self.assertEqual(result.asWkt(2), expected)
+    def test_chamfer_segments_basic_right_angle(self):
+        """Test basic chamfer creation between perpendicular segments"""
+        seg1_start = QgsPoint(1.0, 0.0)
+        seg1_end = QgsPoint(0.0, 0.0)
+        seg2_start = QgsPoint(0.0, 1.0)
+        seg2_end = QgsPoint(0.0, 0.0)
 
-        # Test fillet with different segment count
-        result2 = linestring.fillet(1, 1.0, 2)
-        self.assertFalse(result2.isNull())
-        expected2 = "LineString (0 0, 6 0, 5 1, 5 5)"
-        self.assertEqual(result2.asWkt(2), expected2)
+        # Using the segment-based overload
+        result = QgsGeometry().chamfer(
+            seg1_start, seg1_end, seg2_start, seg2_end, 0.1, 0.1
+        )
+        expected_wkt = "LineString (1 0, 0.1 0, 0 0.1, 0 1)"
+        self.assertEqual(result.asWkt(1), expected_wkt)
 
-        # Test fillet on CompoundCurve
-        compound = QgsGeometry.fromWkt("CompoundCurve((0 0, 5 0), (5 0, 5 5))")
-        result3 = compound.fillet(1, 1.0)
-        # CompoundCurve fillet may not be fully implemented yet
-        if result3.isNull():
-            self.skipTest("CompoundCurve fillet not yet implemented")
-        else:
-            self.assertEqual(result3.wkbType(), QgsWkbTypes.CompoundCurve)
-            # Expected: CompoundCurve with CircularString for fillet
-            self.assertTrue("CircularString" in result3.asWkt())
+    def test_chamfer_segments_asymmetric_distances(self):
+        """Test chamfer with different distances on each segment"""
+        seg1_start = QgsPoint(2.0, 0.0)
+        seg1_end = QgsPoint(0.0, 0.0)
+        seg2_start = QgsPoint(0.0, 3.0)
+        seg2_end = QgsPoint(0.0, 0.0)
 
-    def testFilletSegments(self):
-        """Test QgsGeometry.fillet() with explicit segments"""
-        linestring = QgsGeometry.fromWkt("LineString(0 0, 5 0, 5 5)")
+        result = QgsGeometry().chamfer(
+            seg1_start, seg1_end, seg2_start, seg2_end, 0.5, 0.3
+        )
+        expected_wkt = "LineString (2 0, 0.5 0, 0 0.3, 0 3)"
+        self.assertEqual(result.asWkt(1), expected_wkt)
 
-        # Define segments using exact coordinates from the WKT
-        seg1Start = QgsPoint(0, 0)
-        seg1End = QgsPoint(5, 0)
-        seg2Start = QgsPoint(5, 0)
-        seg2End = QgsPoint(5, 5)
+    def test_chamfer_segments_default_distance2(self):
+        """Test chamfer with default distance2 parameter (should use distance1)"""
+        seg1_start = QgsPoint(1.0, 0.0)
+        seg1_end = QgsPoint(0.0, 0.0)
+        seg2_start = QgsPoint(0.0, 1.0)
+        seg2_end = QgsPoint(0.0, 0.0)
 
-        result = linestring.fillet(seg1Start, seg1End, seg2Start, seg2End, 1.0, 4)
-        self.assertFalse(result.isNull())
+        # Using default distance2 = -1.0
+        result = QgsGeometry().chamfer(seg1_start, seg1_end, seg2_start, seg2_end, 0.15)
+        expected_wkt = "LineString (1 0, 0.15 0, 0 0.15, 0 1)"
+        self.assertEqual(result.asWkt(2), expected_wkt)
 
-        # Should be same as vertex-based fillet
-        expected = "LineString (0 0, 6 0, 5.62 0.08, 5.29 0.29, 5.08 0.62, 5 1, 5 5)"
-        self.assertEqual(result.asWkt(2), expected)
+    def test_chamfer_segments_with_z_coordinates(self):
+        """Test chamfer creation with Z coordinate interpolation"""
+        seg1_start = QgsPoint(1.0, 0.0, 10.0)
+        seg1_end = QgsPoint(0.0, 0.0, 0.0)
+        seg2_start = QgsPoint(0.0, 1.0, 5.0)
+        seg2_end = QgsPoint(0.0, 0.0, 0.0)
 
-    def testChamferVertex(self):
-        """Test QgsGeometry.chamfer() with vertex index"""
-        # Test basic symmetric chamfer with distance 1.0
-        linestring = QgsGeometry.fromWkt("LineString(0 0, 5 0, 5 5)")
-        result = linestring.chamfer(1, 1.0)
-        self.assertFalse(result.isNull())
+        result = QgsGeometry().chamfer(
+            seg1_start, seg1_end, seg2_start, seg2_end, 0.2, 0.2
+        )
+        expected_wkt = "LineStringZ (1 0 10, 0.2 0 2, 0 0.2 1, 0 1 5)"
+        self.assertEqual(result.asWkt(1), expected_wkt)
 
-        # Chamfer replaces corner vertex with two points at distance 1.0 from corner
-        expected = "LineString (0 0, 4 0, 5 1, 5 5)"
-        self.assertEqual(result.asWkt(2), expected)
+    def test_chamfer_segments_with_m_coordinates(self):
+        """Test chamfer creation with M coordinate interpolation"""
+        seg1_start = QgsPoint(1.0, 0.0, m=100.0)
+        seg1_end = QgsPoint(0.0, 0.0, m=0.0)
+        seg2_start = QgsPoint(0.0, 1.0, m=50.0)
+        seg2_end = QgsPoint(0.0, 0.0, m=0.0)
 
-        # Test asymmetric chamfer with different distances
-        linestring2 = QgsGeometry.fromWkt("LineString(0 0, 10 0, 10 10)")
-        result2 = linestring2.chamfer(1, 2.0, 3.0)
-        self.assertFalse(result2.isNull())
+        result = QgsGeometry().chamfer(
+            seg1_start, seg1_end, seg2_start, seg2_end, 0.1, 0.1
+        )
+        expected_wkt = "LineStringM (1 0 100, 0.1 0 10, 0 0.1 5, 0 1 50)"
+        self.assertEqual(result.asWkt(1), expected_wkt)
 
-        # Distance 2.0 on first segment, 3.0 on second segment
-        expected2 = "LineString (0 0, 8 0, 10 3, 10 10)"
-        self.assertEqual(result2.asWkt(2), expected2)
+    def test_chamfer_segments_parallel_failure(self):
+        """Test that parallel segments return empty geometry"""
+        seg1_start = QgsPoint(0.0, 0.0)
+        seg1_end = QgsPoint(1.0, 0.0)
+        seg2_start = QgsPoint(0.0, 1.0)
+        seg2_end = QgsPoint(1.0, 1.0)
 
-    def testChamferSegments(self):
-        """Test QgsGeometry.chamfer() with explicit segments"""
-        linestring = QgsGeometry.fromWkt("LineString(0 0, 6 0, 6 6)")
+        result = QgsGeometry().chamfer(
+            seg1_start, seg1_end, seg2_start, seg2_end, 0.1, 0.1
+        )
+        self.assertTrue(result.isEmpty())
 
-        seg1Start = QgsPoint(0, 0)
-        seg1End = QgsPoint(6, 0)
-        seg2Start = QgsPoint(6, 0)
-        seg2End = QgsPoint(6, 6)
+    def test_chamfer_segments_negative_distances(self):
+        """Test that negative distances return empty geometry"""
+        seg1_start = QgsPoint(1.0, 0.0)
+        seg1_end = QgsPoint(0.0, 0.0)
+        seg2_start = QgsPoint(0.0, 1.0)
+        seg2_end = QgsPoint(0.0, 0.0)
 
-        result = linestring.chamfer(seg1Start, seg1End, seg2Start, seg2End, 1.0, 1.5)
-        self.assertFalse(result.isNull())
+        result = QgsGeometry().chamfer(
+            seg1_start, seg1_end, seg2_start, seg2_end, -0.1, 0.1
+        )
+        self.assertTrue(result.isEmpty())
 
-        # Distance 1.0 on first segment, 1.5 on second segment
-        expected = "LineString (0 0, 5 0, 6 1.5, 6 6)"
-        self.assertEqual(result.asWkt(2), expected)
+    # ============================================================================
+    # CHAMFER TESTS - VERTEX-BASED OVERLOAD
+    # ============================================================================
 
-    def testFilletChamferZMSupport(self):
-        """Test Z and M coordinate support in fillet and chamfer operations"""
+    def test_chamfer_vertex_middle_vertex(self):
+        """Test applying chamfer to middle vertex of a linestring"""
+        linestring = QgsGeometry.fromWkt("LineString (0 0, 1 0, 1 1)")
 
-        # Test 3D LineString (Z coordinates)
-        linestring3d = QgsGeometry.fromWkt("LineString Z(0 0 0, 5 0 5, 5 5 10)")
+        result = linestring.chamfer(1, 0.1, 0.1)
+        expected_wkt = "LineString (0 0, 0.9 0, 1 0.1, 1 1)"
+        self.assertEqual(result.asWkt(1), expected_wkt)
 
-        # Test fillet preserves and interpolates Z values
-        fillet_result = linestring3d.fillet(1, 0.5, 4)
-        self.assertFalse(fillet_result.isNull())
-        self.assertTrue(fillet_result.constGet().is3D())
+    def test_chamfer_vertex_symmetric_default(self):
+        """Test chamfer at vertex with symmetric distances using default parameter"""
+        linestring = QgsGeometry.fromWkt("LineString (0 0, 1 0, 1 1)")
 
-        # Z coordinates should be interpolated based on actual tangent points
-        expected = "LineString Z (0 0 0, 5.5 0 5.5, 5.31 0.04 5.5, 5.15 0.15 5.5, 5.04 0.31 5.5, 5 0.5 5.5, 5 5 10)"
-        self.assertEqual(fillet_result.asWkt(2), expected)
+        # Using default distance2 (should equal distance1)
+        result = linestring.chamfer(1, 0.15)
+        expected_wkt = "LineString (0 0, 0.85 0, 1 0.15, 1 1)"
+        self.assertEqual(result.asWkt(2), expected_wkt)
 
-        # Test chamfer preserves and interpolates Z values
-        chamfer_result = linestring3d.chamfer(1, 0.8, 1.2)
-        self.assertFalse(chamfer_result.isNull())
-        self.assertTrue(chamfer_result.constGet().is3D())
+    def test_chamfer_vertex_with_z_values(self):
+        """Test chamfer at vertex with Z coordinate preservation"""
+        linestring = QgsGeometry.fromWkt("LineStringZ (0 0 0, 1 0 5, 1 1 10)")
 
-        # Z at chamfer points based on actual implementation
-        expected = "LineString Z (0 0 0, 4.2 0 4.2, 5 1.2 6.2, 5 5 10)"
-        self.assertEqual(chamfer_result.asWkt(2), expected)
+        result = linestring.chamfer(1, 0.2, 0.2)
+        expected_wkt = "LineStringZ (0 0 0, 0.8 0 4, 1 0.2 6, 1 1 10)"
+        self.assertEqual(result.asWkt(1), expected_wkt)
 
-        # Test LineString with M coordinates
-        linestringM = QgsGeometry.fromWkt("LineString M(0 0 100, 5 0 200, 5 5 300)")
+    def test_chamfer_vertex_invalid_index(self):
+        """Test chamfer with invalid vertex index"""
+        linestring = QgsGeometry.fromWkt("LineString (0 0, 1 0, 1 1)")
 
-        fillet_resultM = linestringM.fillet(1, 0.5, 4)
-        self.assertFalse(fillet_resultM.isNull())
-        self.assertTrue(fillet_resultM.constGet().isMeasure())
+        # Test first vertex (should fail)
+        result = linestring.chamfer(0, 0.1, 0.1)
+        self.assertTrue(result.isEmpty())
 
-        # M coordinates should be interpolated (adjust expected values based on actual results)
-        # This test may need adjustment based on actual interpolation behavior
-        self.assertTrue(fillet_resultM.constGet().isMeasure())
+        # Test last vertex (should fail)
+        result = linestring.chamfer(2, 0.1, 0.1)
+        self.assertTrue(result.isEmpty())
 
-        # Test LineString with both Z and M coordinates
-        linestringZM = QgsGeometry.fromWkt(
-            "LineString ZM(0 0 0 100, 5 0 5 200, 5 5 10 300)"
+    def test_chamfer_vertex_acute_angle(self):
+        """Test chamfer at vertex with acute angle"""
+        linestring = QgsGeometry.fromWkt("LineString (0 0, 1 0, 0.5 0.5)")
+
+        result = linestring.chamfer(1, 0.1, 0.1)
+        # Expected values based on geometric calculation for acute angle
+        expected_wkt = "LineString (0 0, 0.9 0, 0.929 0.071, 0.5 0.5)"
+        self.assertEqual(result.asWkt(3), expected_wkt)
+
+    def test_chamfer_vertex_complex_linestring(self):
+        """Test chamfer on complex linestring with multiple vertices"""
+        linestring = QgsGeometry.fromWkt("LineString (0 0, 2 0, 4 0, 4 2, 4 4)")
+
+        # Chamfer at vertex index 2 (middle vertex)
+        result = linestring.chamfer(2, 0.3)
+        expected_wkt = "LineString (0 0, 2 0, 3.7 0, 4 0.3, 4 2, 4 4)"
+        self.assertEqual(result.asWkt(1), expected_wkt)
+
+    # ============================================================================
+    # FILLET TESTS - SEGMENT-BASED OVERLOAD
+    # ============================================================================
+
+    def test_fillet_segments_basic_right_angle_circular(self):
+        """Test basic fillet creation between perpendicular segments (CircularString)"""
+        seg1_start = QgsPoint(1.0, 0.0)
+        seg1_end = QgsPoint(0.0, 0.0)
+        seg2_start = QgsPoint(0.0, 1.0)
+        seg2_end = QgsPoint(0.0, 0.0)
+
+        # segments = 0 should return CompoundCurve with CircularString
+        result = QgsGeometry().fillet(
+            seg1_start, seg1_end, seg2_start, seg2_end, 0.1, 0
+        )
+        expected_wkt = "CompoundCurve ((1 0, 0.1 0), CircularString (0.1 0, 0.071 0.071, 0 0.1), (0 0.1, 0 1))"
+        self.assertEqual(result.asWkt(3), expected_wkt)
+
+    def test_fillet_segments_basic_right_angle_segmented(self):
+        """Test basic fillet creation between perpendicular segments (segmented)"""
+        seg1_start = QgsPoint(1.0, 0.0)
+        seg1_end = QgsPoint(0.0, 0.0)
+        seg2_start = QgsPoint(0.0, 1.0)
+        seg2_end = QgsPoint(0.0, 0.0)
+
+        # segments = 8 should return LineString
+        result = QgsGeometry().fillet(
+            seg1_start, seg1_end, seg2_start, seg2_end, 0.1, 8
         )
 
-        fillet_resultZM = linestringZM.fillet(1, 0.5, 4)
-        self.assertFalse(fillet_resultZM.isNull())
-        self.assertTrue(fillet_resultZM.constGet().is3D())
-        self.assertTrue(fillet_resultZM.constGet().isMeasure())
+        # Should be a linestring starting from seg1_start, through fillet, to seg2_start
+        self.assertEqual(result.wkbType(), QgsWkbTypes.LineString)
+        points = result.asPolyline()
+        self.assertEqual(points[0], QgsPoint(1.0, 0.0))  # Start at seg1_start
+        self.assertEqual(points[-1], QgsPoint(0.0, 1.0))  # End at seg2_start
+        self.assertGreater(len(points), 10)  # Should have many points for the arc
 
-        # Verify both Z and M coordinates are preserved
-        self.assertTrue(fillet_resultZM.constGet().is3D())
-        self.assertTrue(fillet_resultZM.constGet().isMeasure())
+    def test_fillet_segments_with_z_coordinates(self):
+        """Test fillet creation with Z coordinate interpolation"""
+        seg1_start = QgsPoint(1.0, 0.0, 10.0)
+        seg1_end = QgsPoint(0.0, 0.0, 0.0)
+        seg2_start = QgsPoint(0.0, 1.0, 8.0)
+        seg2_end = QgsPoint(0.0, 0.0, 0.0)
 
-    def testFilletChamferCompoundCurve(self):
-        """Test fillet and chamfer specifically on CompoundCurve geometries"""
+        result = QgsGeometry().fillet(
+            seg1_start, seg1_end, seg2_start, seg2_end, 0.1, 0
+        )
+        expected_wkt = "CompoundCurveZ ((1 0 10, 0.1 0 1), CircularStringZ (0.1 0 1, 0.071 0.071 1.4, 0 0.1 0.8), (0 0.1 0.8, 0 1 8))"
+        self.assertEqual(result.asWkt(3), expected_wkt)
 
-        compound = QgsGeometry.fromWkt(
-            "CompoundCurve((0 0, 5 0), (5 0, 5 5), (5 5, 0 5))"
+    def test_fillet_segments_large_radius_failure(self):
+        """Test that oversized radius returns empty geometry"""
+        seg1_start = QgsPoint(0.1, 0.0)
+        seg1_end = QgsPoint(0.0, 0.0)
+        seg2_start = QgsPoint(0.0, 0.1)
+        seg2_end = QgsPoint(0.0, 0.0)
+
+        result = QgsGeometry().fillet(seg1_start, seg1_end, seg2_start, seg2_end, 1.0)
+        self.assertTrue(result.isEmpty())
+
+    def test_fillet_segments_zero_radius_failure(self):
+        """Test that zero radius returns empty geometry"""
+        seg1_start = QgsPoint(1.0, 0.0)
+        seg1_end = QgsPoint(0.0, 0.0)
+        seg2_start = QgsPoint(0.0, 1.0)
+        seg2_end = QgsPoint(0.0, 0.0)
+
+        result = QgsGeometry().fillet(seg1_start, seg1_end, seg2_start, seg2_end, 0.0)
+        self.assertTrue(result.isEmpty())
+
+    def test_fillet_segments_acute_angle(self):
+        """Test fillet creation with acute angle"""
+        seg1_start = QgsPoint(2.0, 0.0)
+        seg1_end = QgsPoint(0.0, 0.0)
+        seg2_start = QgsPoint(1.0, 1.732)  # 30 degree angle
+        seg2_end = QgsPoint(0.0, 0.0)
+
+        result = QgsGeometry().fillet(
+            seg1_start, seg1_end, seg2_start, seg2_end, 0.1, 0
         )
 
-        # Fillet at first corner (vertex 1)
-        fillet_result = compound.fillet(1, 0.8)
+        # Should produce a CompoundCurve with CircularString
+        self.assertEqual(result.wkbType(), QgsWkbTypes.CompoundCurve)
+        self.assertFalse(result.isEmpty())
 
-        # CompoundCurve fillet may not be fully implemented yet
-        if fillet_result.isNull():
-            self.skipTest("CompoundCurve fillet not yet implemented")
-        else:
-            self.assertEqual(fillet_result.wkbType(), QgsWkbTypes.CompoundCurve)
-            # Should have CircularString for the fillet arc
-            self.assertTrue("CircularString" in fillet_result.asWkt())
+    # ============================================================================
+    # FILLET TESTS - VERTEX-BASED OVERLOAD
+    # ============================================================================
 
-        # Chamfer at second corner (vertex 2)
-        chamfer_result = compound.chamfer(2, 0.6, 1.0)
+    def test_fillet_vertex_linestring_default_segments(self):
+        """Test applying fillet to vertex in a linestring with default segments"""
+        linestring = QgsGeometry.fromWkt("LineString (0 0, 1 0, 1 1)")
 
-        if chamfer_result.isNull():
-            self.skipTest("CompoundCurve chamfer not yet implemented")
-        else:
-            # Chamfer should create straight lines, not curves
-            self.assertFalse(chamfer_result.isNull())
+        # Using default segments = 8
+        result = linestring.fillet(1, 0.1)
 
-    def testFilletChamferSpecialAngles(self):
-        """Test fillet and chamfer on various angle types"""
+        # Result should be a linestring with the fillet segmented
+        self.assertEqual(result.wkbType(), QgsWkbTypes.LineString)
 
-        # Test acute angle (less than 90 degrees)
-        acute_line = QgsGeometry.fromWkt("LineString(0 0, 5 0, 4 1)")
+        # Should start and end at original endpoints
+        points = result.asPolyline()
+        self.assertEqual(points[0], QgsPoint(0, 0))
+        self.assertEqual(points[-1], QgsPoint(1, 1))
 
-        acute_fillet = acute_line.fillet(1, 0.2, 4)
-        self.assertFalse(acute_fillet.isNull())
+        # Should have more points than original due to arc segmentation
+        self.assertGreater(len(points), 3)
 
-        # For acute angle, fillet creates arc based on actual geometry
-        expected = (
-            "LineString (0 0, 5.08 0, 5.04 0, 5.01 0.02, 4.97 0.03, 4.94 0.06, 4 1)"
+    def test_fillet_vertex_linestring_custom_segments(self):
+        """Test applying fillet with custom segment count"""
+        linestring = QgsGeometry.fromWkt("LineString (0 0, 1 0, 1 1)")
+
+        result = linestring.fillet(1, 0.1, 12)  # 12 segments
+
+        self.assertEqual(result.wkbType(), QgsWkbTypes.LineString)
+        # Should have approximately 12 segments in the arc portion
+        self.assertGreater(len(result.asPolyline()), 10)
+
+    def test_fillet_vertex_with_z_values(self):
+        """Test fillet at vertex with Z coordinate preservation"""
+        linestring = QgsGeometry.fromWkt("LineStringZ (0 0 0, 1 0 5, 1 1 10)")
+
+        result = linestring.fillet(1, 0.1)
+
+        # Should preserve Z coordinates
+        self.assertTrue(result.is3D())
+
+        # Check that Z values are reasonable (interpolated)
+        points = result.asPolyline()
+        for point in points:
+            self.assertTrue(
+                0 <= point.z() <= 10,
+                f"Z value {point.z()} should be within input range",
+            )
+
+    def test_fillet_vertex_invalid_index(self):
+        """Test fillet with invalid vertex index"""
+        linestring = QgsGeometry.fromWkt("LineString (0 0, 1 0, 1 1)")
+
+        # Test first vertex (should fail)
+        result = linestring.fillet(0, 0.1)
+        self.assertTrue(result.isEmpty())
+
+        # Test last vertex (should fail)
+        result = linestring.fillet(2, 0.1)
+        self.assertTrue(result.isEmpty())
+
+    def test_fillet_vertex_large_radius_failure(self):
+        """Test fillet with radius too large for available geometry"""
+        linestring = QgsGeometry.fromWkt("LineString (0 0, 0.1 0, 0.1 0.1)")
+
+        result = linestring.fillet(1, 1.0)  # Radius much larger than segments
+        self.assertTrue(result.isEmpty())
+
+    # ============================================================================
+    # EDGE CASES AND ERROR HANDLING
+    # ============================================================================
+
+    def test_empty_geometry_handling(self):
+        """Test that methods handle empty geometries gracefully"""
+        empty_geom = QgsGeometry()
+
+        result = empty_geom.chamfer(1, 0.1, 0.1)
+        self.assertTrue(result.isEmpty())
+
+        result = empty_geom.fillet(1, 0.1)
+        self.assertTrue(result.isEmpty())
+
+    def test_single_point_geometry(self):
+        """Test behavior with point geometries"""
+        point = QgsGeometry.fromWkt("Point (0 0)")
+
+        result = point.chamfer(0, 0.1, 0.1)
+        self.assertTrue(result.isEmpty())
+
+        result = point.fillet(0, 0.1)
+        self.assertTrue(result.isEmpty())
+
+    def test_two_point_linestring(self):
+        """Test behavior with minimum linestring"""
+        linestring = QgsGeometry.fromWkt("LineString (0 0, 1 1)")
+
+        result = linestring.chamfer(1, 0.1, 0.1)
+        self.assertTrue(result.isEmpty())
+
+        result = linestring.fillet(1, 0.1)
+        self.assertTrue(result.isEmpty())
+
+    def test_polygon_geometry_handling(self):
+        """Test behavior with polygon geometries (should fail gracefully)"""
+        polygon = QgsGeometry.fromWkt("Polygon ((0 0, 1 0, 1 1, 0 1, 0 0))")
+
+        result = polygon.chamfer(1, 0.1)
+        self.assertTrue(result.isEmpty())
+
+        result = polygon.fillet(1, 0.1)
+        self.assertTrue(result.isEmpty())
+
+    # ============================================================================
+    # PRECISION AND PERFORMANCE TESTS
+    # ============================================================================
+
+    def test_precision_with_small_values(self):
+        """Test precision handling with small coordinate values"""
+        seg1_start = QgsPoint(0.001, 0.0)
+        seg1_end = QgsPoint(0.0, 0.0)
+        seg2_start = QgsPoint(0.0, 0.001)
+        seg2_end = QgsPoint(0.0, 0.0)
+
+        result = QgsGeometry().chamfer(
+            seg1_start, seg1_end, seg2_start, seg2_end, 0.0001, 0.0001
         )
-        self.assertEqual(acute_fillet.asWkt(2), expected)
+        self.assertFalse(result.isEmpty())
 
-        acute_chamfer = acute_line.chamfer(1, 0.3, 0.2)
-        self.assertFalse(acute_chamfer.isNull())
-
-        # Chamfer with distances 0.3 and 0.2 (adjust based on actual results)
-        expected = "LineString (0 0, 4.7 0, 4.9 0.1, 4 1)"
-        self.assertEqual(acute_chamfer.asWkt(1), expected)
-
-        # Test obtuse angle (greater than 90 degrees)
-        obtuse_line = QgsGeometry.fromWkt("LineString(0 0, 5 0, 2 -3)")
-
-        obtuse_fillet = obtuse_line.fillet(1, 0.5, 4)
-        self.assertFalse(obtuse_fillet.isNull())
-
-        # For obtuse angle, fillet calculations are different
-        # Arc center will be positioned differently for obtuse angles
-        self.assertTrue(
-            obtuse_fillet.constGet().numPoints() >= 5
-        )  # Should have arc points
-
-        obtuse_chamfer = obtuse_line.chamfer(1, 0.4, 0.6)
-        self.assertFalse(obtuse_chamfer.isNull())
-
-        # Should have 4 points total (start, chamfer_start, chamfer_end, end)
-        self.assertEqual(obtuse_chamfer.constGet().numPoints(), 4)
-
-    def testInvalidInputsFilletChamfer(self):
-        """Test error handling for both fillet and chamfer approaches"""
-
-        linestring = QgsGeometry.fromWkt("LineString(0 0, 10 0, 10 10)")
-
-        # Invalid vertex indices
-        result = linestring.fillet(0, 0.5)  # start vertex (invalid)
-        self.assertTrue(result.isNull())
-
-        result = linestring.fillet(2, 0.5)  # end vertex (invalid)
-        self.assertTrue(result.isNull())
-
-        result = linestring.fillet(5, 0.5)  # out of range
-        self.assertTrue(result.isNull())
-
-        # Invalid parameters
-        result = linestring.fillet(1, 0)  # zero radius
-        self.assertTrue(result.isNull())
-
-        result = linestring.fillet(1, -0.5)  # negative radius
-        self.assertTrue(result.isNull())
-
-        result = linestring.fillet(1, 0.5, 0)  # zero segments
-        self.assertTrue(result.isNull())
-
-        result = linestring.chamfer(1, 0)  # zero distance
-        self.assertTrue(result.isNull())
-
-        result = linestring.chamfer(1, -0.5)  # negative distance
-        self.assertTrue(result.isNull())
-
-        # Test on unsuitable geometries
-        point = QgsGeometry.fromWkt("Point(1 2)")
-        result = point.fillet(1, 0.5)
-        self.assertTrue(result.isNull())
-
-        result = point.chamfer(1, 0.5)
-        self.assertTrue(result.isNull())
-
-        # Empty geometry
-        empty = QgsGeometry()
-        result = empty.fillet(1, 0.5)
-        self.assertTrue(result.isNull())
-
-        result = empty.chamfer(1, 0.5)
-        self.assertTrue(result.isNull())
-
-    def testFilletChamferParallelSegments(self):
-        """Test handling of parallel segments (should fail)"""
-
-        # Create geometry with parallel segments
-        linestring = QgsGeometry.fromWkt("LineString(0 0, 5 0, 10 0)")
-
-        # Fillet on parallel segments should fail
-        fillet_result = linestring.fillet(1, 0.5)
-        self.assertTrue(fillet_result.isNull())
-
-        # Chamfer on parallel segments should also fail
-        chamfer_result = linestring.chamfer(1, 0.5)
-        self.assertTrue(chamfer_result.isNull())
-
-    def testFilletChamferSegmentSpecificPoints(self):
-        """Test fillet and chamfer with specific segment points"""
-
-        # Test with non-connected segments (should find intersection)
-        linestring = QgsGeometry.fromWkt("LineString(0 0, 8 0, 8 8)")
-
-        # Define segments that meet at (8,0)
-        seg1Start = QgsPoint(0, 0)
-        seg1End = QgsPoint(8, 0)
-        seg2Start = QgsPoint(8, 0)
-        seg2End = QgsPoint(8, 8)
-
-        fillet_result = linestring.fillet(
-            seg1Start, seg1End, seg2Start, seg2End, 1.0, 4
+        result = QgsGeometry().fillet(
+            seg1_start, seg1_end, seg2_start, seg2_end, 0.0001, 0
         )
-        self.assertFalse(fillet_result.isNull())
+        self.assertFalse(result.isEmpty())
 
-        # Should create fillet at intersection point (8,0) - adjusted for actual results
-        expected = "LineString (0 0, 9 0, 8.62 0.08, 8.29 0.29, 8.08 0.62, 8 1, 8 8)"
-        self.assertEqual(fillet_result.asWkt(2), expected)
+    def test_precision_with_large_values(self):
+        """Test precision handling with large coordinate values"""
+        seg1_start = QgsPoint(1000.0, 0.0)
+        seg1_end = QgsPoint(0.0, 0.0)
+        seg2_start = QgsPoint(0.0, 1000.0)
+        seg2_end = QgsPoint(0.0, 0.0)
 
-        chamfer_result = linestring.chamfer(
-            seg1Start, seg1End, seg2Start, seg2End, 1.0, 1.5
+        result = QgsGeometry().chamfer(
+            seg1_start, seg1_end, seg2_start, seg2_end, 10.0, 10.0
         )
-        self.assertFalse(chamfer_result.isNull())
+        expected_wkt = "LineString (1000 0, 10 0, 0 10, 0 1000)"
+        self.assertEqual(result.asWkt(0), expected_wkt)
 
-        # Should create chamfer at intersection point
-        expected = "LineString (0 0, 7 0, 8 1.5, 8 8)"
-        self.assertEqual(chamfer_result.asWkt(2), expected)
+        result = QgsGeometry().fillet(
+            seg1_start, seg1_end, seg2_start, seg2_end, 10.0, 0
+        )
+        self.assertFalse(result.isEmpty())
 
-    def testFilletChamferComplexGeometry(self):
-        """Test fillet and chamfer on more complex LineString geometries"""
+    def test_method_overload_disambiguation(self):
+        """Test that method overloads work correctly"""
+        linestring = QgsGeometry.fromWkt("LineString (0 0, 1 0, 1 1)")
 
-        # Multi-segment LineString
-        complex_line = QgsGeometry.fromWkt("LineString(0 0, 3 0, 6 0, 6 3, 6 6)")
+        # Vertex-based overload
+        result1 = linestring.chamfer(1, 0.1)  # Single distance
+        result2 = linestring.chamfer(1, 0.1, 0.15)  # Different distances
 
-        # Fillet at middle vertex (vertex 2 at point 6,0)
-        fillet_result = complex_line.fillet(2, 0.5, 4)
-        self.assertFalse(fillet_result.isNull())
+        self.assertFalse(result1.isEmpty())
+        self.assertFalse(result2.isEmpty())
 
-        # Should fillet the right angle at (6,0) - adjusted for actual results
-        expected = "LineString (0 0, 3 0, 6.5 0, 6.31 0.04, 6.15 0.15, 6.04 0.31, 6 0.5, 6 3, 6 6)"
-        self.assertEqual(fillet_result.asWkt(2), expected)
+        # Results should be different due to different distances
+        self.assertNotEqual(result1.asWkt(), result2.asWkt())
 
-        # Chamfer at same vertex
-        chamfer_result = complex_line.chamfer(2, 0.8, 0.6)
-        self.assertFalse(chamfer_result.isNull())
+    # ============================================================================
+    # INTEGRATION TESTS WITH REAL-WORLD SCENARIOS
+    # ============================================================================
 
-        # Should chamfer the angle at (6,0)
-        expected = "LineString (0 0, 3 0, 5.2 0, 6 0.6, 6 3, 6 6)"
-        self.assertEqual(chamfer_result.asWkt(2), expected)
+    def test_building_outline_corners(self):
+        """Test chamfering corners of a building outline"""
+        # Simple rectangular building
+        building = QgsGeometry.fromWkt("LineString (0 0, 10 0, 10 5, 0 5, 0 0)")
 
-    def testFilletChamferLargeRadiusDistance(self):
-        """Test behavior with radius/distance larger than available segment length"""
+        # Chamfer corner at (10, 0)
+        result = building.chamfer(1, 0.5)
+        self.assertFalse(result.isEmpty())
 
-        # Short segments with large requested fillet radius
-        short_line = QgsGeometry.fromWkt("LineString(0 0, 1 0, 1 1)")
+        # Should maintain overall rectangular shape with chamfered corner
+        self.assertTrue(result.isValid())
 
-        # Request fillet with radius larger than segments can accommodate
-        large_fillet = short_line.fillet(1, 2.0)  # radius 2.0 on segments of length 1.0
-        # Should either fail or be automatically adjusted
-        # Implementation may clamp to smaller radius or fail entirely
-        # This tests the robustness of the algorithm
+    def test_road_intersection_rounding(self):
+        """Test filleting road intersections"""
+        # Simple T-intersection
+        road = QgsGeometry.fromWkt("LineString (0 5, 5 5, 5 0)")
 
-        # Similar test for chamfer
-        large_chamfer = short_line.chamfer(
-            1, 2.0
-        )  # distance 2.0 on segments of length 1.0
-        # Should either fail or be automatically adjusted
+        # Fillet the corner with realistic road radius
+        result = road.fillet(1, 2.0)  # 2m radius
+        self.assertFalse(result.isEmpty())
 
-    def testFilletChamferDegenerateGeometries(self):
-        """Test handling of degenerate geometries"""
-
-        # LineString with duplicate points
-        degenerate1 = QgsGeometry.fromWkt("LineString(0 0, 0 0, 1 0)")
-        result = degenerate1.fillet(1, 0.5)
-        # Should handle gracefully (likely fail)
-
-        # LineString with only 2 points (no vertex to fillet)
-        degenerate2 = QgsGeometry.fromWkt("LineString(0 0, 1 0)")
-        result = degenerate2.fillet(1, 0.5)  # Invalid vertex index
-        self.assertTrue(result.isNull())
-
-        # Very small segments
-        tiny_line = QgsGeometry.fromWkt("LineString(0 0, 0.001 0, 0.001 0.001)")
-        result = tiny_line.fillet(1, 0.0001, 4)
-        # Should handle very small geometries appropriately
+        # Should have smooth transition
+        self.assertEqual(result.wkbType(), QgsWkbTypes.LineString)
 
 
 if __name__ == "__main__":

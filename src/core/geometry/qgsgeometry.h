@@ -3329,29 +3329,6 @@ class CORE_EXPORT QgsGeometry
     std::unique_ptr< QgsPolygon > smoothPolygon( const QgsPolygon &polygon, unsigned int iterations = 1, double offset = 0.25,
         double minimumDistance = -1, double maxAngle = 180.0 ) const;
 
-
-    QgsGeometry chamferAtVertex( const QgsCurve *curve, int vertexIndex, double distance1, double distance2 ) const;
-    QgsGeometry chamferBetweenSegments( const QgsCurve *curve,
-                                        const QgsPoint &seg1Start, const QgsPoint &seg1End,
-                                        const QgsPoint &seg2Start, const QgsPoint &seg2End,
-                                        double distance1, double distance2 ) const;
-    QgsGeometry filletAtVertex( const QgsCurve *curve, int vertexIndex, double radius, int segments ) const;
-    QgsGeometry filletBetweenSegments( const QgsCurve *curve,
-                                       const QgsPoint &seg1Start, const QgsPoint &seg1End,
-                                       const QgsPoint &seg2Start, const QgsPoint &seg2End,
-                                       double radius, int segments ) const;
-    int findIntersectionVertex( const QgsCurve *curve, const QgsPoint &point1, const QgsPoint &point2 ) const;
-    QgsGeometry applySegmentedFillet( QgsGeometry &geom, int vertexIndex,
-                                      const QgsPoint &filletStart, const QgsPoint &filletMiddle, const QgsPoint &filletEnd,
-                                      int segments ) const;
-    QgsGeometry applyCircularFillet( QgsGeometry &geom, int vertexIndex,
-                                     const QgsPoint &filletStart, const QgsPoint &filletMiddle, const QgsPoint &filletEnd ) const;
-    QgsGeometry insertCircularStringInCompound( QgsCompoundCurve *compound, int vertexIndex,
-        const QgsPoint &filletStart, const QgsPoint &filletMiddle,
-        const QgsPoint &filletEnd ) const;
-
-
-
     friend class QgsInternalGeometryEngine;
 
 }; // class QgsGeometry
