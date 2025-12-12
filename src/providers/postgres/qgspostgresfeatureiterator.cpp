@@ -610,11 +610,34 @@ QString QgsPostgresFeatureIterator::whereClauseRect()
 
   if ( mRequest.flags() & Qgis::FeatureRequestFlag::ExactIntersect )
   {
-    QString curveToLineFn; // in PostGIS < 1.5 the st_curvetoline function does not exist
-    if ( mConn->majorVersion() >= 2 || ( mConn->majorVersion() == 1 && mConn->minorVersion() >= 5 ) )
-      curveToLineFn = QStringLiteral( "st_curvetoline" ); // st_ prefix is always used
-    whereClause += QStringLiteral( " AND %1(%2(%3%4),%5)" )
-                     .arg( mConn->majorVersion() < 2 ? "intersects" : "st_intersects", curveToLineFn, QgsPostgresConn::quotedIdentifier( mSource->mGeometryColumn ), castToGeometry ? "::geometry" : "", qBox );
+    // Build geometry conversion function chain based on geometry type
+    // This is needed because ST_Intersects uses GEOS which doesn't support
+    // certain geometry types (TIN, PolyhedralSurface)
+    QString geomConversionFn;
+    const Qgis::WkbType flatGeomType = QgsWkbTypes::flatType( mSource->mDetectedGeomType );
+
+    // For TIN and PolyhedralSurface: use ST_Buffer(geom, 0) to convert to simple polygon
+    // This is a workaround since GEOS doesn't support these types directly
+    // and PostGIS doesn't yet have a simple PHS/TIN to MultiPolygon for example
+    if ( flatGeomType == Qgis::WkbType::TIN || flatGeomType == Qgis::WkbType::PolyhedralSurface )
+    {
+      geomConversionFn = QStringLiteral( "st_buffer(%1,0)" );
+    }
+    // For curve types use st_curvetoline to linearize
+    else if ( mConn->majorVersion() >= 2 || ( mConn->majorVersion() == 1 && mConn->minorVersion() >= 5 ) )
+    {
+      geomConversionFn = QStringLiteral( "st_curvetoline(%1)" );
+    }
+
+    QString geomExpr = QgsPostgresConn::quotedIdentifier( mSource->mGeometryColumn );
+    if ( castToGeometry )
+      geomExpr += QLatin1String( "::geometry" );
+
+    if ( !geomConversionFn.isEmpty() )
+      geomExpr = geomConversionFn.arg( geomExpr );
+
+    whereClause += QStringLiteral( " AND %1(%2,%3)" )
+                     .arg( mConn->majorVersion() < 2 ? "intersects" : "st_intersects", geomExpr, qBox );
   }
 
   if ( !mSource->mRequestedSrid.isEmpty() && ( mSource->mRequestedSrid != mSource->mDetectedSrid || mSource->mRequestedSrid.toInt() == 0 ) )
