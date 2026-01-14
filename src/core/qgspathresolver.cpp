@@ -19,6 +19,7 @@
 #include "qgsapplication.h"
 #include "qgsgdalutils.h"
 #include "qgslocalizeddatapathregistry.h"
+#include "qgsmessagelog.h"
 
 #include <QDir>
 #include <QFileInfo>
@@ -74,7 +75,54 @@ QString QgsPathResolver::readPath( const QString &f ) const
   if ( src.startsWith( "attachment:"_L1 ) )
   {
     // resolve attachment w.r.t. temporary path where project archive is extracted
-    return QDir( mAttachmentDir ).absoluteFilePath( src.mid( 11 ) );
+    const QString attachmentPath = src.mid( 11 );
+
+    // Security: Block path traversal attempts
+    if ( attachmentPath.contains( ".."_L1 ) ||
+         attachmentPath.contains( "//"_L1 ) ||
+         attachmentPath.startsWith( '/'_L1 ) )
+    {
+      QgsMessageLog::logMessage(
+        QObject::tr( "Blocked potential path traversal in attachment: %1" ).arg( attachmentPath ),
+        u"Security"_s,
+        Qgis::MessageLevel::Warning
+      );
+      return QString();
+    }
+
+    const QString resolvedPath = QDir( mAttachmentDir ).absoluteFilePath( attachmentPath );
+
+    // Security: Verify resolved path stays within attachment directory
+    const QString canonicalAttachDir = QDir( mAttachmentDir ).canonicalPath();
+    const QString canonicalResolved = QFileInfo( resolvedPath ).canonicalFilePath();
+
+    // If file doesn't exist yet, canonicalFilePath returns empty - check parent directory
+    if ( canonicalResolved.isEmpty() )
+    {
+      const QString parentPath = QFileInfo( resolvedPath ).absolutePath();
+      const QString canonicalParent = QDir( parentPath ).canonicalPath();
+      if ( !canonicalParent.startsWith( canonicalAttachDir ) )
+      {
+        QgsMessageLog::logMessage(
+          QObject::tr( "Attachment path resolves outside attachment directory: %1" ).arg( attachmentPath ),
+          u"Security"_s,
+          Qgis::MessageLevel::Warning
+        );
+        return QString();
+      }
+    }
+    else if ( !canonicalResolved.startsWith( canonicalAttachDir + QDir::separator() ) &&
+              canonicalResolved != canonicalAttachDir )
+    {
+      QgsMessageLog::logMessage(
+        QObject::tr( "Attachment path resolves outside attachment directory: %1" ).arg( attachmentPath ),
+        u"Security"_s,
+        Qgis::MessageLevel::Warning
+      );
+      return QString();
+    }
+
+    return resolvedPath;
   }
 
   if ( mBaseFileName.isNull() )
