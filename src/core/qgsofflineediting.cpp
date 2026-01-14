@@ -1198,7 +1198,7 @@ sqlite3_database_unique_ptr QgsOfflineEditing::openLoggingDb()
 
 int QgsOfflineEditing::getOrCreateLayerId( sqlite3 *db, const QString &qgisLayerId )
 {
-  QString sql = u"SELECT \"id\" FROM 'log_layer_ids' WHERE \"qgis_id\" = '%1'"_s.arg( qgisLayerId );
+  QString sql = u"SELECT \"id\" FROM 'log_layer_ids' WHERE \"qgis_id\" = %1"_s.arg( sqlEscape( qgisLayerId ) );
   int layerId = sqlQueryInt( db, sql, -1 );
   if ( layerId == -1 )
   {
@@ -1207,7 +1207,7 @@ int QgsOfflineEditing::getOrCreateLayerId( sqlite3 *db, const QString &qgisLayer
     const int newLayerId = sqlQueryInt( db, sql, -1 );
 
     // insert layer
-    sql = u"INSERT INTO 'log_layer_ids' VALUES (%1, '%2')"_s.arg( newLayerId ).arg( qgisLayerId );
+    sql = u"INSERT INTO 'log_layer_ids' VALUES (%1, %2)"_s.arg( newLayerId ).arg( sqlEscape( qgisLayerId ) );
     sqlExec( db, sql );
 
     // increase layer_id
@@ -1470,14 +1470,14 @@ void QgsOfflineEditing::committedAttributesAdded( const QString &qgisLayerId, co
 
   for ( const QgsField &field : addedAttributes )
   {
-    const QString sql = u"INSERT INTO 'log_added_attrs' VALUES ( %1, %2, '%3', %4, %5, %6, '%7' )"_s
+    const QString sql = u"INSERT INTO 'log_added_attrs' VALUES ( %1, %2, %3, %4, %5, %6, %7 )"_s
                         .arg( layerId )
                         .arg( commitNo )
-                        .arg( field.name() )
+                        .arg( sqlEscape( field.name() ) )
                         .arg( field.type() )
                         .arg( field.length() )
                         .arg( field.precision() )
-                        .arg( field.comment() );
+                        .arg( sqlEscape( field.comment() ) );
     sqlExec( database.get(), sql );
   }
 
@@ -1517,7 +1517,9 @@ void QgsOfflineEditing::committedFeaturesAdded( const QString &qgisLayerId, cons
   }
 
   // only store feature ids
-  const QString sql = u"SELECT ROWID FROM '%1' ORDER BY ROWID DESC LIMIT %2"_s.arg( tableName ).arg( addedFeatures.size() );
+  // Escape table name as SQL identifier (double quotes, escape embedded " as "")
+  const QString escapedTableName = u"\"%1\""_s.arg( QString( tableName ).replace( "\""_L1, "\"\""_L1 ) );
+  const QString sql = u"SELECT ROWID FROM %1 ORDER BY ROWID DESC LIMIT %2"_s.arg( escapedTableName ).arg( addedFeatures.size() );
   const QList<int> newFeatureIds = sqlQueryInts( database.get(), sql );
   for ( int i = newFeatureIds.size() - 1; i >= 0; i-- )
   {
