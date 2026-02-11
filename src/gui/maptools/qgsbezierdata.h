@@ -165,6 +165,31 @@ class GUI_EXPORT QgsBezierData
      */
     std::unique_ptr<QgsNurbsCurve> asNurbsCurve() const;
 
+    /**
+     * Creates QgsBezierData from a poly-Bézier NURBS curve control points.
+     *
+     * Converts NURBS control point layout (anchor, handle, handle, anchor, ...)
+     * to QgsBezierData structure (anchors with left/right handles).
+     *
+     * \param controlPoints Control points from a poly-Bézier NURBS curve
+     *                      (must have 3n-2 points where n >= 2)
+     * \returns QgsBezierData with anchors and handles extracted
+     * \since QGIS 4.0
+     */
+    static QgsBezierData fromPolyBezierControlPoints( const QVector<QgsPoint> &controlPoints );
+
+    /**
+     * Creates QgsBezierData from a poly-Bézier NURBS curve control points.
+     *
+     * Overload that accepts 2D points.
+     *
+     * \param controlPoints Control points from a poly-Bézier NURBS curve
+     *                      (must have 3n-2 points where n >= 2)
+     * \returns QgsBezierData with anchors and handles extracted
+     * \since QGIS 4.0
+     */
+    static QgsBezierData fromPolyBezierControlPoints( const QVector<QgsPointXY> &controlPoints );
+
     //! Clears all data
     void clear();
 

@@ -310,4 +310,55 @@ int QgsBezierData::findClosestSegment( const QgsPoint &point, double tolerance )
   return closestSegment;
 }
 
+QgsBezierData QgsBezierData::fromPolyBezierControlPoints( const QVector<QgsPoint> &controlPoints )
+{
+  QgsBezierData data;
+
+  const int n = controlPoints.size();
+  if ( n < 4 || ( n + 2 ) % 3 != 0 )
+    return data;
+
+  const int numAnchors = ( n + 2 ) / 3;
+
+  for ( int i = 0; i < numAnchors; ++i )
+  {
+    const int anchorIndex = i * 3;
+    if ( anchorIndex >= n )
+      break;
+
+    const QgsPoint &anchor = controlPoints[anchorIndex];
+    QgsPoint leftHandle = anchor;
+    QgsPoint rightHandle = anchor;
+
+    if ( i > 0 )
+    {
+      const int leftIndex = anchorIndex - 1;
+      if ( leftIndex < n )
+        leftHandle = controlPoints[leftIndex];
+    }
+
+    if ( i < numAnchors - 1 )
+    {
+      const int rightIndex = anchorIndex + 1;
+      if ( rightIndex < n )
+        rightHandle = controlPoints[rightIndex];
+    }
+
+    data.addAnchor( anchor );
+    data.moveHandle( i * 2, leftHandle );
+    data.moveHandle( i * 2 + 1, rightHandle );
+  }
+
+  return data;
+}
+
+QgsBezierData QgsBezierData::fromPolyBezierControlPoints( const QVector<QgsPointXY> &controlPoints )
+{
+  QVector<QgsPoint> points;
+  points.reserve( controlPoints.size() );
+  for ( const QgsPointXY &pt : controlPoints )
+    points.append( QgsPoint( pt ) );
+  return fromPolyBezierControlPoints( points );
+}
+
 ///@endcond PRIVATE
