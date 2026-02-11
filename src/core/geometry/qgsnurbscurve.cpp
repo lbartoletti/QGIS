@@ -1507,6 +1507,58 @@ bool QgsNurbsCurve::insertVertex( QgsVertexId position, const QgsPoint &vertex )
   return true;
 }
 
+bool QgsNurbsCurve::appendPolyBezierSegment( const QgsPoint &point, bool atEnd )
+{
+  if ( !isPolyBezier() )
+    return false;
+
+  if ( mControlPoints.isEmpty() )
+    return false;
+
+  const int currentAnchorCount = static_cast<int>( ( mControlPoints.size() + 2 ) / 3 );
+
+  if ( atEnd )
+  {
+    // Append at the end: add 3 points (handle_out, handle_in, anchor)
+    const QgsPoint &lastAnchor = mControlPoints.last();
+
+    // Handle out from last anchor (retracted)
+    mControlPoints.append( lastAnchor );
+    mWeights.append( 1.0 );
+
+    // Handle in to new anchor (retracted)
+    mControlPoints.append( point );
+    mWeights.append( 1.0 );
+
+    // New anchor
+    mControlPoints.append( point );
+    mWeights.append( 1.0 );
+  }
+  else
+  {
+    // Prepend at the beginning: add 3 points (anchor, handle_out, handle_in)
+    const QgsPoint &firstAnchor = mControlPoints.first();
+
+    // New anchor
+    mControlPoints.prepend( point );
+    mWeights.prepend( 1.0 );
+
+    // Handle out from new anchor (retracted)
+    mControlPoints.insert( 1, point );
+    mWeights.insert( 1, 1.0 );
+
+    // Handle in to first anchor (retracted)
+    mControlPoints.insert( 2, firstAnchor );
+    mWeights.insert( 2, 1.0 );
+  }
+
+  // Regenerate knot vector for poly-Bézier with new anchor count
+  mKnots = generateKnotsForBezierConversion( currentAnchorCount + 1 );
+
+  clearCache();
+  return true;
+}
+
 int QgsNurbsCurve::wkbSize( QgsAbstractGeometry::WkbFlags flags ) const
 {
   Q_UNUSED( flags );

@@ -186,6 +186,25 @@ the number of control points.
 
     virtual bool insertVertex( QgsVertexId position, const QgsPoint &vertex );
 
+
+    bool appendPolyBezierSegment( const QgsPoint &point, bool atEnd = true );
+%Docstring
+Appends a new poly-Bézier segment to the end or beginning of the curve.
+
+This method only works for poly-Bézier curves
+(:py:func:`~QgsNurbsCurve.isPolyBezier` must return ``True``). It adds 3
+new control points (handle_out, handle_in, anchor) with retracted
+handles, and maintains the proper poly-Bézier knot vector structure.
+
+:param point: the new anchor point position
+:param atEnd: ``True`` to append at the end, ``False`` to prepend at the
+              beginning
+
+:return: ``True`` if the segment was successfully added, ``False`` if
+         this is not a poly-Bézier curve
+
+.. versionadded:: 4.0
+%End
     virtual int wkbSize( QgsAbstractGeometry::WkbFlags flags = QgsAbstractGeometry::WkbFlags() ) const;
 
     virtual QByteArray asWkb( QgsAbstractGeometry::WkbFlags flags = QgsAbstractGeometry::WkbFlags() ) const;

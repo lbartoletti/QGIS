@@ -161,6 +161,20 @@ class CORE_EXPORT QgsNurbsCurve : public QgsCurve
     QgsBox3D boundingBox3D() const override;
     bool moveVertex( QgsVertexId position, const QgsPoint &newPos ) override;
     bool insertVertex( QgsVertexId position, const QgsPoint &vertex ) override;
+
+    /**
+     * Appends a new poly-Bézier segment to the end or beginning of the curve.
+     *
+     * This method only works for poly-Bézier curves (isPolyBezier() must return TRUE).
+     * It adds 3 new control points (handle_out, handle_in, anchor) with retracted handles,
+     * and maintains the proper poly-Bézier knot vector structure.
+     *
+     * \param point the new anchor point position
+     * \param atEnd TRUE to append at the end, FALSE to prepend at the beginning
+     * \returns TRUE if the segment was successfully added, FALSE if this is not a poly-Bézier curve
+     * \since QGIS 4.0
+     */
+    bool appendPolyBezierSegment( const QgsPoint &point, bool atEnd = true );
     int wkbSize( QgsAbstractGeometry::WkbFlags flags = QgsAbstractGeometry::WkbFlags() ) const override;
     QByteArray asWkb( QgsAbstractGeometry::WkbFlags flags = QgsAbstractGeometry::WkbFlags() ) const override;
     QString asWkt( int precision = 17 ) const override;
