@@ -1337,10 +1337,12 @@ void QgsVertexTool::mouseMoveNotDragging( QgsMapMouseEvent *e )
 
     // if we are at an endpoint, let's show also the endpoint indicator
     // so user can possibly add a new vertex at the end
-    // but not for NURBS curves (endpoint addition not yet supported)
+    // Supported for regular curves and poly-Bézier NURBS (but not for NURBS CAD mode)
     const QgsGeometry geom = cachedGeometry( m.layer(), m.featureId() );
-    const bool isNurbs = QgsNurbsUtils::containsNurbsCurve( geom.constGet() );
-    if ( isMatchAtEndpoint( m ) && !isNurbs )
+    const QgsNurbsCurve *nurbs = QgsNurbsUtils::extractNurbsCurve( geom.constGet() );
+    const bool isPolyBezier = nurbs && nurbs->isPolyBezier();
+    const bool isRegularCurve = !nurbs;
+    if ( isMatchAtEndpoint( m ) && ( isRegularCurve || isPolyBezier ) )
     {
       mMouseAtEndpoint = std::make_unique< Vertex >( m.layer(), m.featureId(), m.vertexIndex() );
       mEndpointMarkerCenter = std::make_unique< QgsPointXY >( positionForEndpointMarker( m ) );
@@ -2422,6 +2424,7 @@ void QgsVertexTool::moveVertex( const QgsPointXY &mapPoint, const QgsPointLocato
   int dragVertexId = mDraggingVertex->vertexId;
   bool addingVertex = mDraggingVertexType == AddingVertex || mDraggingVertexType == AddingEndpoint;
   bool addingAtEndpoint = mDraggingVertexType == AddingEndpoint;
+  bool addedPolyBezierSegment = false; // Track if we added a poly-Bézier segment (3 points instead of 1)
   QgsGeometry geom = cachedGeometryForVertex( *mDraggingVertex );
 
   // Store Alt+drag poly-Bézier state before stopDragging resets it
@@ -2510,10 +2513,36 @@ void QgsVertexTool::moveVertex( const QgsPointXY &mapPoint, const QgsPointLocato
       }
     }
 
-    if ( !geomTmp->insertVertex( vid, pt ) )
+    // Check if adding to a poly-Bézier endpoint
+    if ( addingAtEndpoint )
     {
-      QgsDebugError( u"append vertex failed!"_s );
-      return;
+      QgsNurbsCurve *nurbsCurve = dynamic_cast<QgsNurbsCurve *>( geomTmp.get() );
+      if ( !nurbsCurve )
+      {
+        // Try to extract from compound curve or collection
+        int localIdx = 0;
+        nurbsCurve = QgsNurbsUtils::findNurbsCurveForVertex( geomTmp.get(), vid, localIdx );
+      }
+
+      if ( nurbsCurve && nurbsCurve->isPolyBezier() )
+      {
+        // For poly-Bézier: use special method to append a new segment with retracted handles
+        const bool atEnd = ( vid.vertex != 0 );
+        if ( nurbsCurve->appendPolyBezierSegment( pt, atEnd ) )
+        {
+          addedPolyBezierSegment = true;
+        }
+      }
+    }
+
+    if ( !addedPolyBezierSegment )
+    {
+      // Regular vertex insertion
+      if ( !geomTmp->insertVertex( vid, pt ) )
+      {
+        QgsDebugError( u"append vertex failed!"_s );
+        return;
+      }
     }
   }
   else if ( wasAltDragPolyBezier )
@@ -2674,7 +2703,13 @@ void QgsVertexTool::moveVertex( const QgsPointXY &mapPoint, const QgsPointLocato
     if ( mMouseAtEndpoint->vertexId != 0 )
     {
       // If we were adding at the end of the feature, we need to update the index
-      mMouseAtEndpoint = std::make_unique< Vertex >( mMouseAtEndpoint->layer, mMouseAtEndpoint->fid, mMouseAtEndpoint->vertexId + 1 );
+      // For poly-Bézier: we added 3 control points (handle_out, handle_in, anchor)
+      // For regular curves: we added 1 point
+      int pointsAdded = 1;
+      if ( addedPolyBezierSegment )
+        pointsAdded = 3;
+
+      mMouseAtEndpoint = std::make_unique< Vertex >( mMouseAtEndpoint->layer, mMouseAtEndpoint->fid, mMouseAtEndpoint->vertexId + pointsAdded );
     }
     // And then we just restart the drag
     startDraggingAddVertexAtEndpoint( mapPoint );
