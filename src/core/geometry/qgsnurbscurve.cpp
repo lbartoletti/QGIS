@@ -120,7 +120,45 @@ bool QgsNurbsCurve::isRational() const
 bool QgsNurbsCurve::isPolyBezier() const
 {
   const int n = mControlPoints.size();
-  return mDegree == 3 && n >= 4 && ( n - 1 ) % 3 == 0;
+
+  // Basic requirements: degree 3, at least 4 points, (n-1) divisible by 3
+  if ( mDegree != 3 || n < 4 || ( n - 1 ) % 3 != 0 )
+    return false;
+
+  // Check knot vector structure for poly-Bézier
+  // Expected format: [0,0,0,0, 1,1,1, 2,2,2, ..., m,m,m,m] where m = (n-1)/3
+  const int numSegments = ( n - 1 ) / 3;
+  const int expectedKnots = 3 * numSegments + 5; // 4 + 3*(numSegments - 1) + 4
+
+  if ( mKnots.size() != expectedKnots )
+    return false;
+
+  // Check first 4 knots are 0
+  for ( int i = 0; i < 4; ++i )
+  {
+    if ( !qgsDoubleNear( mKnots[i], 0.0 ) )
+      return false;
+  }
+
+  // Check last 4 knots are numSegments
+  for ( int i = expectedKnots - 4; i < expectedKnots; ++i )
+  {
+    if ( !qgsDoubleNear( mKnots[i], static_cast<double>( numSegments ) ) )
+      return false;
+  }
+
+  // Check interior knots have multiplicity 3 at segment junctions
+  for ( int seg = 1; seg < numSegments; ++seg )
+  {
+    const int knotIndex = 4 + ( seg - 1 ) * 3;
+    for ( int j = 0; j < 3; ++j )
+    {
+      if ( !qgsDoubleNear( mKnots[knotIndex + j], static_cast<double>( seg ) ) )
+        return false;
+    }
+  }
+
+  return true;
 }
 
 /**
