@@ -77,6 +77,7 @@ class TestQgsNurbsCurve : public QObject
     void weightAccessTests();
     void evaluateInvalidNurbs();
     void generateKnotsForBezierConversion();
+    void appendPolyBezierSegment();
 };
 
 void TestQgsNurbsCurve::emptyConstructor()
@@ -889,6 +890,98 @@ void TestQgsNurbsCurve::generateKnotsForBezierConversion()
     QCOMPARE( knots[i], 2.0 );
   for ( int i = 10; i < 14; ++i )
     QCOMPARE( knots[i], 3.0 );
+}
+
+void TestQgsNurbsCurve::appendPolyBezierSegment()
+{
+  // Test 1: Append at end with basic poly-Bézier
+  QVector<QgsPoint> controlPoints;
+  controlPoints << QgsPoint( 0, 0 ) << QgsPoint( 3, 0 ) << QgsPoint( 7, 0 ) << QgsPoint( 10, 0 );
+  QVector<double> knots = QgsNurbsCurve::generateKnotsForBezierConversion( 2 );
+  QVector<double> weights;
+  weights << 1.0 << 1.0 << 1.0 << 1.0;
+  QgsNurbsCurve curve( controlPoints, 3, knots, weights );
+
+  QVERIFY( curve.isPolyBezier() );
+  QCOMPARE( curve.controlPoints().size(), 4 );
+
+  // Append new segment at end
+  QVERIFY( curve.appendPolyBezierSegment( QgsPoint( 15, 5 ), true ) );
+
+  // Should now have 7 control points (4 + 3)
+  QCOMPARE( curve.controlPoints().size(), 7 );
+
+  // Verify new anchor
+  QCOMPARE( curve.controlPoints()[6], QgsPoint( 15, 5 ) );
+
+  // Verify handles are retracted
+  QCOMPARE( curve.controlPoints()[4], QgsPoint( 10, 0 ) ); // handle_out from last anchor
+  QCOMPARE( curve.controlPoints()[5], QgsPoint( 15, 5 ) ); // handle_in to new anchor (retracted)
+
+  // Verify knot vector has correct structure for 3 anchors
+  // Expected: [0,0,0,0, 1,1,1, 2,2,2,2] (11 knots)
+  QCOMPARE( curve.knots().size(), 11 );
+  QVERIFY( curve.isPolyBezier() );
+
+  // Test 2: Prepend at beginning
+  QgsNurbsCurve curve2( controlPoints, 3, knots, weights );
+
+  QVERIFY( curve2.appendPolyBezierSegment( QgsPoint( -5, 3 ), false ) );
+
+  // Should now have 7 control points
+  QCOMPARE( curve2.controlPoints().size(), 7 );
+
+  // Verify new anchor is at the beginning
+  QCOMPARE( curve2.controlPoints()[0], QgsPoint( -5, 3 ) );
+
+  // Verify handles are retracted
+  QCOMPARE( curve2.controlPoints()[1], QgsPoint( -5, 3 ) ); // handle_out from new anchor (retracted)
+  QCOMPARE( curve2.controlPoints()[2], QgsPoint( 0, 0 ) );  // handle_in to first anchor
+
+  // Verify knot vector
+  QCOMPARE( curve2.knots().size(), 11 );
+  QVERIFY( curve2.isPolyBezier() );
+
+  // Test 3: Fails for non-poly-Bézier curve
+  QVector<QgsPoint> stdPoints;
+  stdPoints << QgsPoint( 0, 0 ) << QgsPoint( 5, 5 ) << QgsPoint( 10, 0 );
+  QVector<double> stdKnots;
+  stdKnots << 0.0 << 0.0 << 0.0 << 1.0 << 1.0 << 1.0; // Standard quadratic B-spline
+  QVector<double> stdWeights;
+  stdWeights << 1.0 << 1.0 << 1.0;
+  QgsNurbsCurve nonPolyBezier( stdPoints, 2, stdKnots, stdWeights );
+
+  QVERIFY( !nonPolyBezier.isPolyBezier() );
+  QVERIFY( !nonPolyBezier.appendPolyBezierSegment( QgsPoint( 15, 0 ), true ) );
+  QCOMPARE( nonPolyBezier.controlPoints().size(), 3 ); // Unchanged
+
+  // Test 4: Fails for empty curve
+  QgsNurbsCurve emptyCurve;
+  QVERIFY( !emptyCurve.appendPolyBezierSegment( QgsPoint( 0, 0 ), true ) );
+
+  // Test 5: Preserves Z/M values
+  QVector<QgsPoint> controlPointsZM;
+  controlPointsZM << QgsPoint( 0, 0, 10, 100 )
+                  << QgsPoint( 3, 0, 11, 110 )
+                  << QgsPoint( 7, 0, 12, 120 )
+                  << QgsPoint( 10, 0, 13, 130 );
+  QgsNurbsCurve curveZM( controlPointsZM, 3, knots, weights );
+
+  QVERIFY( curveZM.appendPolyBezierSegment( QgsPoint( 15, 5, 14, 140 ), true ) );
+
+  // Verify Z/M preserved on new anchor
+  QgsPoint newAnchor = curveZM.controlPoints()[6];
+  QCOMPARE( newAnchor.x(), 15.0 );
+  QCOMPARE( newAnchor.y(), 5.0 );
+  QCOMPARE( newAnchor.z(), 14.0 );
+  QCOMPARE( newAnchor.m(), 140.0 );
+
+  // Verify retracted handle inherits anchor's Z/M
+  QgsPoint retractedHandle = curveZM.controlPoints()[5];
+  QCOMPARE( retractedHandle.x(), 15.0 );
+  QCOMPARE( retractedHandle.y(), 5.0 );
+  QCOMPARE( retractedHandle.z(), 14.0 );
+  QCOMPARE( retractedHandle.m(), 140.0 );
 }
 
 QGSTEST_MAIN( TestQgsNurbsCurve )
