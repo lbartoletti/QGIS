@@ -19,6 +19,7 @@
 #include <memory>
 
 #include "qgis_app.h"
+#include "qgsbeziermarker.h"
 #include "qgsgeometry.h"
 #include "qgsmaptooladvanceddigitizing.h"
 #include "qgspointlocator.h"
@@ -29,6 +30,7 @@
 class QRubberBand;
 
 class QgsGeometryValidator;
+class QgsNurbsCurve;
 class QgsVertexEditor;
 class QgsLockedFeature;
 class QgsSnapIndicator;
@@ -133,6 +135,8 @@ class APP_EXPORT QgsVertexTool : public QgsMapToolAdvancedDigitizing
     void addDragStraightBand( QgsVectorLayer *layer, QgsPointXY v0, QgsPointXY v1, bool moving0, bool moving1, const QgsPointXY &mapPoint );
 
     void addDragCircularBand( QgsVectorLayer *layer, QgsPointXY v0, QgsPointXY v1, QgsPointXY v2, bool moving0, bool moving1, bool moving2, const QgsPointXY &mapPoint );
+
+    void addDragNurbsBand( QgsVectorLayer *layer, const QgsNurbsCurve *nurbs, const QSet<int> &movingCtrlPointIndices, const QgsPointXY &mapPoint );
 
     void moveDragBands( const QgsPointXY &mapPoint );
 
@@ -310,6 +314,22 @@ class APP_EXPORT QgsVertexTool : public QgsMapToolAdvancedDigitizing
     //! update the highlight of vertices from the locked feature
     void updateLockedFeatureVertices();
 
+    void applyNurbsControlPolygonStyle( QgsRubberBand *band );
+
+    /**
+     * Adjusts Z/M value for NURBS vertex, preserving original Z/M or using default.
+     * For non-snapping operations on NURBS curves.
+     *
+     * \param point Point to adjust
+     * \param original Original vertex (for Z/M preservation)
+     * \param layer Vector layer (for wkbType check)
+     * \param allowInterpolation If true and beforePoint/afterPoint provided, interpolate Z/M
+     * \param beforePoint Optional point before for interpolation
+     * \param afterPoint Optional point after for interpolation
+     * \since QGIS 4.0
+     */
+    void adjustNurbsVertexZMValue( QgsPoint &point, const QgsPoint &original, QgsVectorLayer *layer );
+
   private:
     QgsVertexEditor *vertexEditor();
 
@@ -381,16 +401,48 @@ class APP_EXPORT QgsVertexTool : public QgsMapToolAdvancedDigitizing
         void updateRubberBand( const QgsPointXY &mapPoint );
     };
 
+    //! structure to keep information about a rubber band used for dragging of a NURBS curve \since QGIS 4.0
+    struct NurbsBand
+    {
+        QgsRubberBand *curveBand = nullptr;   //!< Evaluated NURBS curve visualization
+        QgsRubberBand *controlBand = nullptr; //!< Control polygon
+        QVector<QgsPointXY> controlPoints;    //!< Control points in map coordinates
+        QVector<int> movingIndices;           //!< Indices of control points being dragged
+        QVector<QgsVector> offsets;           //!< Offset vectors from mouse cursor to each moving control point
+        int degree = 3;                       //!< NURBS curve degree
+        QVector<double> knots;                //!< Knot vector
+        QVector<double> weights;              //!< Weight vector for rational curves
+
+        //! Update geometry of the rubber bands on the current mouse cursor position (in map units)
+        void updateRubberBand( const QgsPointXY &mapPoint );
+
+        //! Update geometry of the rubber bands from pre-calculated control points
+        void updateRubberBandFromPoints( const QVector<QgsPoint> &updatedControlPoints );
+    };
+
     //! list of active straight line rubber bands
     QList<StraightBand> mDragStraightBands;
     //! list of active rubber bands for circular segments
     QList<CircularBand> mDragCircularBands;
+    //! list of active rubber bands for NURBS curves \since QGIS 4.0
+    QList<NurbsBand> mDragNurbsBands;
+
+    //! rubber band for displaying NURBS control polygon in edit mode \since QGIS 4.0
+    std::unique_ptr<QgsRubberBand> mNurbsControlPolygonBand;
+    //! Visualization for Poly-Bézier curves \since QGIS 4.0
+    std::unique_ptr<QgsBezierMarker> mBezierMarker;
+
     //! instance of Vertex that is being currently moved or nothing
     std::unique_ptr<Vertex> mDraggingVertex;
     //! whether moving a vertex or adding one
     DraggingVertexType mDraggingVertexType = NotDragging;
     //! whether we are currently dragging an edge
     bool mDraggingEdge = false;
+
+    //! TRUE when Alt+dragging a Poly-Bézier anchor for symmetric handle extension \since QGIS 4.0
+    bool mAltDragPolyBezierAnchor = false;
+    //! Index of the Poly-Bézier anchor being Alt+dragged (-1 if none) \since QGIS 4.0
+    int mAltDragAnchorIndex = -1;
 
     /**
      * list of Vertex instances of further vertices that are dragged together with
