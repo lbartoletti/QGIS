@@ -102,6 +102,7 @@ class TestQgsVertexTool : public QObject
     void testMoveVertexTopoOtherMapCrs();
     void testMoveVertexNurbsPolyBezierZ();
     void testMoveVertexNurbsCADZ();
+    void testAddVertexAtEndpointNurbs();
 
   private:
     QPoint mapToScreen( double mapX, double mapY )
@@ -2135,6 +2136,57 @@ void TestQgsVertexTool::testMoveVertexNurbsCADZ()
   QCOMPARE( nurbs->controlPoints()[2].x(), 11.0 );
   QCOMPARE( nurbs->controlPoints()[2].y(), 6.5 );
   QCOMPARE( nurbs->controlPoints()[2].z(), 22.0 );
+}
+
+void TestQgsVertexTool::testAddVertexAtEndpointNurbs()
+{
+  // Test endpoint addition for poly-Bézier NURBS curves
+  // Initial curve: 2 anchors, 4 control points
+
+  // offset of the endpoint marker - currently set as 15px away from the last vertex in direction of the line
+  const double offsetInMapUnits = 15 * mCanvas->mapSettings().mapUnitsPerPixel();
+
+  // Move to the last anchor (control point index 3 at x=13, y=1)
+  mouseMove( 13, 1 );
+
+  // Click on endpoint marker to start adding
+  mouseClick( 13 + offsetInMapUnits, 1, Qt::LeftButton );
+
+  // Add new anchor at (14, 2)
+  mouseClick( 14, 2, Qt::LeftButton );
+
+  // Right click to stop adding
+  mouseClick( 14, 2, Qt::RightButton );
+
+  // Verify the curve now has 7 control points (4 + 3)
+  QgsGeometry geom = mLayerNurbs->getFeature( mFidNurbsF1 ).geometry();
+  const QgsNurbsCurve *nurbs = dynamic_cast<const QgsNurbsCurve *>( geom.constGet() );
+  QVERIFY( nurbs != nullptr );
+  QCOMPARE( nurbs->controlPoints().size(), 7 );
+
+  // Verify the curve is still a poly-Bézier
+  QVERIFY( nurbs->isPolyBezier() );
+
+  // Verify the new anchor is at the end
+  QCOMPARE( nurbs->controlPoints()[6].x(), 14.0 );
+  QCOMPARE( nurbs->controlPoints()[6].y(), 2.0 );
+
+  // Verify handles are retracted (handle_out from last anchor, handle_in to new anchor)
+  QCOMPARE( nurbs->controlPoints()[4].x(), 13.0 );
+  QCOMPARE( nurbs->controlPoints()[4].y(), 1.0 );
+  QCOMPARE( nurbs->controlPoints()[5].x(), 14.0 );
+  QCOMPARE( nurbs->controlPoints()[5].y(), 2.0 );
+
+  // Undo (index is 3 because we added 2 features initially)
+  QCOMPARE( mLayerNurbs->undoStack()->index(), 3 );
+  mLayerNurbs->undoStack()->undo();
+
+  // Verify back to original 4 control points
+  geom = mLayerNurbs->getFeature( mFidNurbsF1 ).geometry();
+  nurbs = dynamic_cast<const QgsNurbsCurve *>( geom.constGet() );
+  QVERIFY( nurbs != nullptr );
+  QCOMPARE( nurbs->controlPoints().size(), 4 );
+  QVERIFY( nurbs->isPolyBezier() );
 }
 
 QGSTEST_MAIN( TestQgsVertexTool )
