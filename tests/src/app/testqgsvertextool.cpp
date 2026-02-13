@@ -102,6 +102,7 @@ class TestQgsVertexTool : public QObject
     void testMoveVertexTopoOtherMapCrs();
     void testMoveVertexNurbsPolyBezierZ();
     void testMoveVertexNurbsCADZ();
+    void testMoveVertexNurbsPolyBezierSymmetric();
 
   private:
     QPoint mapToScreen( double mapX, double mapY )
@@ -2137,5 +2138,78 @@ void TestQgsVertexTool::testMoveVertexNurbsCADZ()
   QCOMPARE( nurbs->controlPoints()[2].z(), 22.0 );
 }
 
+
+void TestQgsVertexTool::testMoveVertexNurbsPolyBezierSymmetric()
+{
+  // Test Alt+Drag on a poly-Bézier NURBS anchor for symmetric handle extension
+  // Use a 3-anchor curve (2 segments) to test proper symmetric movement.
+  // P0 (anchor), P1 (handle), P2 (handle), P3 (anchor), P4 (handle), P5 (handle), P6 (anchor)
+  // We'll drag P3 (index 3). Left handle P2 (index 2), Right handle P4 (index 4).
+
+  QVector<QgsPoint> controlPoints;
+  controlPoints << QgsPoint( 0, 0 ) << QgsPoint( 1, 1 )   // Segment 1 handles
+                << QgsPoint( 4, 1 ) << QgsPoint( 5, 0 )   // Anchor 1 (index 3) at 5,0. Left Handle (index 2) at 4,1
+                << QgsPoint( 6, -1 ) << QgsPoint( 9, -1 ) // Right Handle (index 4) at 6,-1
+                << QgsPoint( 10, 0 );
+
+  QVector<double> knots = QgsNurbsCurve::generateKnotsForBezierConversion( 3 ); // 3 anchors -> 2 segments
+  QVector<double> weights( 7, 1.0 );
+
+  QgsNurbsCurve *nurbsCurve = new QgsNurbsCurve( controlPoints, 3, knots, weights );
+  QgsFeature nurbsF;
+  nurbsF.setGeometry( QgsGeometry( nurbsCurve ) );
+
+  mLayerNurbs->startEditing();
+  mLayerNurbs->addFeature( nurbsF );
+  QgsFeatureId fid = nurbsF.id();
+
+  // Ensure point locator is updated
+  QgsSnappingConfig cfg = mCanvas->snappingUtils()->config();
+  cfg.setMode( Qgis::SnappingMode::AllLayers );
+  cfg.setTolerance( 10 );
+  cfg.setTypeFlag( static_cast<Qgis::SnappingTypes>( Qgis::SnappingType::Vertex ) );
+  cfg.setEnabled( true );
+  mCanvas->snappingUtils()->setConfig( cfg );
+
+  mCanvas->snappingUtils()->locatorForLayer( mLayerNurbs )->init();
+
+  // Select and Alt+Move Anchor 1 (at 5,0)
+  // We drag from 5,0 to 5,2. Delta is (0, 2).
+  // Handle Right (Index 4) was (6, -1). New pos should be Anchor(5,0) + Delta(0,2) = (5, 2).
+  // Handle Left (Index 2) was (4, 1). New pos should be Anchor(5,0) - Delta(0,2) = (5, -2).
+
+  // 1. Move mouse to anchor
+  mouseMove( 5, 0 );
+
+  // 2. Alt+Click (Press + Release) to start dragging
+  mouseClick( 5, 0, Qt::LeftButton, Qt::AltModifier );
+
+  // 3. Move to new position
+  mouseMove( 5, 2 );
+
+  // 4. Click to finish dragging
+  mouseClick( 5, 2, Qt::LeftButton );
+
+  QgsGeometry geom = mLayerNurbs->getFeature( fid ).geometry();
+  const QgsNurbsCurve *nurbs = dynamic_cast<const QgsNurbsCurve *>( geom.constGet() );
+  QVERIFY( nurbs != nullptr );
+
+  // Verify Anchor didn't move
+  QCOMPARE( nurbs->controlPoints()[3].x(), 5.0 );
+  QCOMPARE( nurbs->controlPoints()[3].y(), 0.0 );
+
+  // Verify Right Handle (Index 4) moved to (5, 2)
+  QCOMPARE( nurbs->controlPoints()[4].x(), 5.0 );
+  QCOMPARE( nurbs->controlPoints()[4].y(), 2.0 );
+
+  // Verify Left Handle (Index 2) moved to (5, -2)
+  QCOMPARE( nurbs->controlPoints()[2].x(), 5.0 );
+  QCOMPARE( nurbs->controlPoints()[2].y(), -2.0 );
+
+  // Cleanup
+  mLayerNurbs->undoStack()->undo();
+  cfg.setEnabled( false );
+  mCanvas->snappingUtils()->setConfig( cfg );
+}
 QGSTEST_MAIN( TestQgsVertexTool )
 #include "testqgsvertextool.moc"
