@@ -685,17 +685,8 @@ void QgsMapToolCapture::cadCanvasMoveEvent( QgsMapMouseEvent *e )
       }
       else if ( mBezierDragAnchorIndex >= 0 )
       {
-        // Creating new anchor: update both handles symmetrically
-        const QgsPoint &anchor = mBezierData->anchor( mBezierDragAnchorIndex );
-        const int leftHandleIdx = mBezierDragAnchorIndex * 2;
-        const int rightHandleIdx = mBezierDragAnchorIndex * 2 + 1;
-
-        // Right handle follows mouse
-        mBezierData->moveHandle( rightHandleIdx, mapPoint );
-
-        // Left handle goes opposite direction: anchor - (mouse - anchor) = 2*anchor - mouse
-        const QgsPoint leftHandle( anchor.x() * 2 - mapPoint.x(), anchor.y() * 2 - mapPoint.y() );
-        mBezierData->moveHandle( leftHandleIdx, leftHandle );
+        // Creating new anchor or Alt+dragging anchor: update both handles symmetrically
+        mBezierData->calculateSymmetricHandles( mBezierDragAnchorIndex, mapPoint );
       }
 
       // Update visualization
